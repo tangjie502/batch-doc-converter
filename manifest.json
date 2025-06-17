@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Batch Doc Converter",
+  "name": "百川归档-Batch Doc Converter",
   "version": "1.0.0",
   "description": "Select links from any webpage, convert them into a single, clean Markdown file, and edit before downloading.",
 "permissions": [
