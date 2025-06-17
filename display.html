@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>文档预览</title>
+    <link rel="stylesheet" href="css/easymde.min.css">
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; }
+        #controls { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #ccc; display: flex; gap: 10px; }
+        #preview { border: 1px solid #eee; padding: 10px 20px; background: #f9f9f9; }
+        /* EasyMDE 会生成自己的容器，我们给它一些样式 */
+        .EasyMDEContainer { border: 1px solid #ccc; }
+        .editor-toolbar { border-radius: 4px 4px 0 0; border-bottom: 1px solid #ccc; }
+        .CodeMirror { border-radius: 0 0 4px 4px; }
+        button { padding: 10px 15px; font-size: 16px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>转换结果预览</h1>
+    <div id="controls">
+        <button id="download-btn">下载 .md 文件</button>
+        <button id="toggle-view-btn">切换到编辑器模式</button>
+    </div>
+
+    <div id="preview"></div>
+
+    <textarea id="markdown-editor" style="display: none;"></textarea>
+
+    <script src="libs/marked.min.js"></script>
+    <script src="libs/easymde.min.js"></script> 
+    <script src="display.js"></script>
+</body>
+</html>

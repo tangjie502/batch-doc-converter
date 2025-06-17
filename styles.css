@@ -1,0 +1,7 @@
+/* 用于高亮显示已被选中的链接 */
+a.link-selected-by-extension {
+  background-color: #FFD700 !important; /* 亮黄色背景 */
+  color: #000000 !important; /* 黑色字体 */
+  border-radius: 3px;
+  padding: 2px 4px;
+}
