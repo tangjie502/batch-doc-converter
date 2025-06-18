@@ -61,12 +61,8 @@ if (typeof TurndownService !== 'undefined' && typeof turndownPluginGfm !== 'unde
     console.log(`[Offscreen] 开始处理URL: ${message.url}`);
     console.log(`[Offscreen] Content-Type: ${message.contentType}`);
     
-    // 将接收到的数组转换回 ArrayBuffer
     const uint8Array = new Uint8Array(message.arrayBuffer);
     const arrayBuffer = uint8Array.buffer;
-    
-    console.log(`[Offscreen] 数据大小: ${arrayBuffer.byteLength} bytes`);
-    
     const htmlText = smartDecode(arrayBuffer, message.contentType);
 
     if (!htmlText || htmlText.trim() === '') {
@@ -105,10 +101,12 @@ if (typeof TurndownService !== 'undefined' && typeof turndownPluginGfm !== 'unde
       
       console.log(`[Offscreen] 解析DOM成功，标题: ${title}`);
       
+      // 移除不需要的元素
       doc.querySelectorAll('script, style, link, meta, noscript').forEach(el => el.remove());
-      const mainContentElement = doc.querySelector('article, main, [role="main"], .content, .post-content');
-      const contentNode = mainContentElement || doc.body;
-
+      
+      // 增强的内容抓取策略
+      const contentNode = extractEnhancedContent(doc);
+      
       const markdownContent = turndownService.turndown(contentNode);
       
       console.log(`[Offscreen] 转换为Markdown成功，长度: ${markdownContent.length} 字符`);
@@ -138,6 +136,119 @@ ${htmlText.substring(0, 1000)}...
 \`\`\``
       });
     }
+  }
+
+  // 新增：增强的内容提取函数
+  function extractEnhancedContent(doc) {
+    // 1. 尝试找到主要内容区域
+    const mainSelectors = [
+      'article', 'main', '[role="main"]', 
+      '.content', '.post-content', '.article-content',
+      '.main-content', '.page-content', '.entry-content',
+      '#content', '#main', '#article'
+    ];
+    
+    let mainContent = null;
+    for (const selector of mainSelectors) {
+      mainContent = doc.querySelector(selector);
+      if (mainContent) break;
+    }
+    
+    // 如果没有找到主要内容区域，使用 body
+    if (!mainContent) {
+      mainContent = doc.body;
+    }
+    
+    // 2. 展开所有折叠内容
+    expandCollapsedContent(mainContent);
+    
+    // 3. 处理懒加载内容
+    processLazyLoadedContent(mainContent);
+    
+    // 4. 移除干扰元素
+    removeNoiseElements(mainContent);
+    
+    return mainContent;
+  }
+
+  // 新增：展开折叠内容
+  function expandCollapsedContent(container) {
+    // 查找常见的折叠面板元素
+    const collapsibleSelectors = [
+      '.collapse', '.collapsed', '.accordion-item',
+      '[data-toggle="collapse"]', '[aria-expanded="false"]',
+      '.hidden', '.collapsible', '.expandable',
+      '.spoiler', '.details', 'details'
+    ];
+    
+    collapsibleSelectors.forEach(selector => {
+      const elements = container.querySelectorAll(selector);
+      elements.forEach(el => {
+        // 移除折叠相关的类
+        el.classList.remove('collapse', 'collapsed', 'hidden');
+        
+        // 设置展开状态
+        el.setAttribute('aria-expanded', 'true');
+        el.style.display = '';
+        el.style.visibility = 'visible';
+        el.style.opacity = '1';
+        el.style.height = 'auto';
+        el.style.overflow = 'visible';
+        
+        // 处理 details 元素
+        if (el.tagName.toLowerCase() === 'details') {
+          el.setAttribute('open', '');
+        }
+      });
+    });
+    
+    // 查找并展开被隐藏的子元素
+    const hiddenElements = container.querySelectorAll('[style*="display: none"], [style*="visibility: hidden"]');
+    hiddenElements.forEach(el => {
+      el.style.display = '';
+      el.style.visibility = 'visible';
+    });
+  }
+
+  // 新增：处理懒加载内容
+  function processLazyLoadedContent(container) {
+    // 处理懒加载图片
+    const lazyImages = container.querySelectorAll('img[data-src], img[data-lazy], img[loading="lazy"]');
+    lazyImages.forEach(img => {
+      const src = img.getAttribute('data-src') || img.getAttribute('data-lazy') || img.src;
+      if (src) {
+        img.src = src;
+        img.removeAttribute('loading');
+      }
+    });
+    
+    // 处理懒加载文本（通常通过 data 属性存储）
+    const lazyTextElements = container.querySelectorAll('[data-content], [data-text]');
+    lazyTextElements.forEach(el => {
+      const content = el.getAttribute('data-content') || el.getAttribute('data-text');
+      if (content && !el.textContent.trim()) {
+        el.textContent = content;
+      }
+    });
+  }
+
+  // 新增：移除干扰元素
+  function removeNoiseElements(container) {
+    const noiseSelectors = [
+      '.advertisement', '.ads', '.ad',
+      '.sidebar', '.widget', '.related-posts',
+      '.comments', '.comment-section',
+      '.navigation', '.nav', '.menu',
+      '.footer', '.header', '.toolbar',
+      '.social-share', '.share-buttons',
+      '.breadcrumb', '.pagination',
+      '.recommendations', '.suggestions'
+    ];
+    
+    noiseSelectors.forEach(selector => {
+      const elements = container.querySelectorAll(selector);
+      elements.forEach(el => el.remove());
+    });
   }
 }
 

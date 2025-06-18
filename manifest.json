@@ -1,23 +1,22 @@
 {
   "manifest_version": 3,
-  "name": "百川归档-Batch Doc Converter",
-  "version": "1.0.0",
-  "description": "Select links from any webpage, convert them into a single, clean Markdown file, and edit before downloading.",
-"permissions": [
+  "name": "百川归档-Batch Doc Converter (增强版)",
+  "version": "1.1.0",
+  "description": "Select links from any webpage, convert them into a single, clean Markdown file, and edit before downloading. Enhanced version with multiple selection modes and advanced content extraction.",
+  "permissions": [
     "storage",
     "activeTab",
     "scripting",
-    "offscreen",
-    "declarative_net_request"
+    "offscreen"
   ],
   "host_permissions": [
     "<all_urls>"
   ],
   "background": {
-    "service_worker": "src/background/background.js"
+    "service_worker": "src/background/background_enhanced.js"
   },
   "action": {
-    "default_popup": "src/popup/popup.html",
+    "default_popup": "src/popup/popup_enhanced.html",
     "default_icon": {
       "16": "assets/icons/icon16.png",
       "48": "assets/icons/icon48.png",
@@ -28,5 +27,14 @@
     "16": "assets/icons/icon16.png",
     "48": "assets/icons/icon48.png",
     "128": "assets/icons/icon128.png"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/config/config_manager.js",
+        "assets/styles/enhanced_styles.css"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

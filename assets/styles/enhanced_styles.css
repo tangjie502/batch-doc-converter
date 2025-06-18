@@ -1,0 +1,93 @@
+/* 增强的选择样式 */
+.enhanced-selected {
+  outline: 3px solid #28a745 !important;
+  outline-offset: 2px !important;
+  background-color: rgba(40, 167, 69, 0.1) !important;
+  position: relative !important;
+}
+
+.enhanced-selected::after {
+  content: '✓';
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #28a745;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+
+  
+  z-index: 10001;
+}
+
+/* 选择模式UI样式 */
+#enhanced-selection-ui {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* 区域选择框样式 */
+#area-selection-box {
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 模式按钮样式 */
+.mode-btn {
+  transition: all 0.2s ease;
+}
+
+.mode-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* 处理按钮样式 */
+#process-selected {
+  transition: all 0.2s ease;
+}
+
+#process-selected:hover {
+  background: #218838 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  #enhanced-selection-ui {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    width: auto;
+  }
+  
+  .mode-btn {
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+} 
