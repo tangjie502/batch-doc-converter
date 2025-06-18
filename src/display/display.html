@@ -6,381 +6,342 @@
     <title>文档预览 - Batch Doc Converter</title>
     <link rel="stylesheet" href="../libs/css/easymde.min.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        html, body {
+            height: 100%;
         }
-
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            padding: 20px;
+            padding: 0;
+            margin: 0;
             color: #495057;
         }
-
         .container {
-            max-width: 1200px;
-            margin: 0 auto;
+            max-width: 1400px;
+            margin: 32px auto;
             background: white;
             border-radius: 16px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
         }
-
         .header {
             background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
             color: white;
-            padding: 30px;
+            padding: 32px 24px 24px 24px;
             text-align: center;
-            position: relative;
         }
-
-        .header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="10" r="0.5" fill="white" opacity="0.1"/><circle cx="10" cy="60" r="0.5" fill="white" opacity="0.1"/><circle cx="90" cy="40" r="0.5" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
-            opacity: 0.3;
-        }
-
         .header h1 {
             font-size: 28px;
             font-weight: 700;
             margin-bottom: 8px;
-            position: relative;
-            z-index: 1;
         }
-
         .header p {
             font-size: 16px;
             opacity: 0.9;
-            position: relative;
-            z-index: 1;
         }
-
+        .main-layout {
+            display: flex;
+            align-items: flex-start; /* 关键：顶部对齐，避免拉伸 */
+            min-height: 600px;
+            background: #f6f8fa;
+        }
+        .sidebar {
+            width: 320px;
+            background: #f8f9fa;
+            border-right: 1px solid #e9ecef;
+            padding: 28px 18px 18px 18px;
+            overflow-y: auto;
+            flex-shrink: 0;
+            align-self: flex-start;
+            min-height: 0;
+            box-sizing: border-box;
+        }
+        .content-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
         .controls {
             background: #f8f9fa;
-            padding: 25px 30px;
+            padding: 18px 30px;
             border-bottom: 1px solid #e9ecef;
             display: flex;
-            gap: 15px;
+            gap: 12px;
             align-items: center;
             flex-wrap: wrap;
         }
-
         .btn {
-            padding: 12px 20px;
+            padding: 10px 16px;
             border: none;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.3s ease;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
             display: flex;
             align-items: center;
-            gap: 8px;
-            text-decoration: none;
+            gap: 6px;
             color: white;
+            text-decoration: none;
         }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
-        }
-
-        .btn-success {
-            background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
-            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
-        }
-
-        .btn-success:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
-        }
-
-        .btn-secondary {
-            background: linear-gradient(135deg, #6c757d 0%, #545b62 100%);
-            box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
-        }
-
-        .btn-secondary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
-        }
-
+        .btn-primary { background: #007bff; }
+        .btn-primary:hover { background: #0056b3; }
+        .btn-success { background: #28a745; }
+        .btn-success:hover { background: #1e7e34; }
+        .btn-secondary { background: #6c757d; }
+        .btn-secondary:hover { background: #545b62; }
         .btn:disabled {
             background: #e9ecef;
             color: #6c757d;
             cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
         }
-
         .btn-icon {
-            width: 16px;
-            height: 16px;
+            width: 14px;
+            height: 14px;
             fill: currentColor;
         }
-
         .view-toggle {
             margin-left: auto;
         }
-
         .content-area {
-            padding: 30px;
-            min-height: 500px;
+            padding: 32px 32px 32px 32px;
+            flex: 1;
+            overflow-y: auto;
+            min-height: 400px;
+            background: #fff;
         }
-
         #preview {
             background: white;
-            border-radius: 12px;
+            border-radius: 8px;
             padding: 30px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
             border: 1px solid #e9ecef;
-            line-height: 1.7;
-            font-size: 16px;
+            line-height: 1.6;
+            font-size: 15px;
+            min-height: 300px;
         }
-
         #preview h1, #preview h2, #preview h3, #preview h4, #preview h5, #preview h6 {
             color: #2c3e50;
-            margin-top: 24px;
-            margin-bottom: 16px;
+            margin-top: 20px;
+            margin-bottom: 12px;
             font-weight: 600;
         }
-
-        #preview h1 { font-size: 2em; border-bottom: 2px solid #e9ecef; padding-bottom: 8px; }
-        #preview h2 { font-size: 1.5em; border-bottom: 1px solid #e9ecef; padding-bottom: 6px; }
-        #preview h3 { font-size: 1.25em; }
+        #preview h1 { font-size: 1.8em; border-bottom: 2px solid #e9ecef; padding-bottom: 6px; }
+        #preview h2 { font-size: 1.4em; border-bottom: 1px solid #e9ecef; padding-bottom: 4px; }
+        #preview h3 { font-size: 1.2em; }
         #preview h4 { font-size: 1.1em; }
-
-        #preview p {
-            margin-bottom: 16px;
-            color: #495057;
-        }
-
+        #preview p { margin-bottom: 12px; color: #495057; }
         #preview code {
             background: #f8f9fa;
-            padding: 2px 6px;
-            border-radius: 4px;
+            padding: 2px 4px;
+            border-radius: 3px;
             font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
-            font-size: 0.9em;
+            font-size: 0.85em;
             color: #e83e8c;
         }
-
         #preview pre {
             background: #f8f9fa;
-            padding: 16px;
-            border-radius: 8px;
+            padding: 12px;
+            border-radius: 6px;
             overflow-x: auto;
             border: 1px solid #e9ecef;
-            margin: 16px 0;
+            margin: 12px 0;
         }
-
-        #preview pre code {
-            background: none;
-            padding: 0;
-            color: #495057;
-        }
-
+        #preview pre code { background: none; padding: 0; color: #495057; }
         #preview blockquote {
-            border-left: 4px solid #007bff;
-            padding-left: 16px;
-            margin: 16px 0;
+            border-left: 3px solid #007bff;
+            padding-left: 12px;
+            margin: 12px 0;
             color: #6c757d;
             font-style: italic;
         }
-
-        #preview ul, #preview ol {
-            margin: 16px 0;
-            padding-left: 24px;
-        }
-
-        #preview li {
-            margin-bottom: 8px;
-        }
-
+        #preview ul, #preview ol { margin: 12px 0; padding-left: 20px; }
+        #preview li { margin-bottom: 6px; }
         #preview table {
             width: 100%;
             border-collapse: collapse;
-            margin: 16px 0;
-            border-radius: 8px;
+            margin: 12px 0;
+            border-radius: 6px;
             overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
-
         #preview th, #preview td {
-            padding: 12px;
+            padding: 8px 12px;
             text-align: left;
             border-bottom: 1px solid #e9ecef;
         }
-
         #preview th {
             background: #f8f9fa;
             font-weight: 600;
             color: #495057;
         }
-
-        #preview tr:hover {
-            background: #f8f9fa;
-        }
-
-        /* EasyMDE 样式优化 */
+        #preview tr:hover { background: #f8f9fa; }
         .EasyMDEContainer {
             border: 1px solid #e9ecef;
-            border-radius: 12px;
+            border-radius: 8px;
             overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
         }
-
         .editor-toolbar {
             background: #f8f9fa;
             border-bottom: 1px solid #e9ecef;
-            border-radius: 12px 12px 0 0;
+            border-radius: 8px 8px 0 0;
         }
-
-        .editor-toolbar button {
-            color: #495057;
-            transition: all 0.2s ease;
-        }
-
-        .editor-toolbar button:hover {
-            background: #e9ecef;
-            color: #007bff;
-        }
-
         .CodeMirror {
-            border-radius: 0 0 12px 12px;
+            border-radius: 0 0 8px 8px;
             font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .settings-section {
+            margin-bottom: 20px;
+        }
+        .settings-section h3 {
             font-size: 14px;
-            line-height: 1.6;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 12px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #e9ecef;
         }
-
-        .CodeMirror-gutters {
-            background: #f8f9fa;
-            border-right: 1px solid #e9ecef;
+        .setting-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f3f4;
         }
-
-        /* 响应式设计 */
+        .setting-item:last-child { border-bottom: none; }
+        .setting-label {
+            font-size: 13px;
+            color: #6c757d;
+            flex: 1;
+        }
+        .setting-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .toggle-switch {
+            position: relative;
+            width: 36px;
+            height: 20px;
+            background: #ccc;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .toggle-switch.active { background: #28a745; }
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+        .toggle-switch.active::after { transform: translateX(16px); }
+        .number-input {
+            width: 60px;
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+            text-align: center;
+        }
+        .apply-btn {
+            width: 100%;
+            margin-top: 15px;
+            padding: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        .apply-btn:hover { background: #0056b3; }
+        .apply-btn:disabled {
+            background: #e9ecef;
+            color: #6c757d;
+            cursor: not-allowed;
+        }
+        @media (max-width: 1024px) {
+            .main-layout { flex-direction: column; }
+            .sidebar {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid #e9ecef;
+            }
+        }
         @media (max-width: 768px) {
-            body {
-                padding: 10px;
-            }
-
-            .container {
-                border-radius: 12px;
-            }
-
-            .header {
-                padding: 20px;
-            }
-
-            .header h1 {
-                font-size: 24px;
-            }
-
-            .controls {
-                padding: 20px;
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .btn {
-                justify-content: center;
-            }
-
-            .view-toggle {
-                margin-left: 0;
-                margin-top: 10px;
-            }
-
-            .content-area {
-                padding: 20px;
-            }
-
-            #preview {
-                padding: 20px;
-                font-size: 14px;
-            }
+            .container { border-radius: 12px; margin: 0; }
+            .header { padding: 20px; }
+            .header h1 { font-size: 24px; }
+            .controls { padding: 15px 20px; flex-direction: column; align-items: stretch; }
+            .btn { justify-content: center; }
+            .view-toggle { margin-left: 0; margin-top: 10px; }
+            .content-area { padding: 20px; }
+            #preview { padding: 20px; font-size: 14px; }
         }
-
-        /* 动画效果 */
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .content-area {
-            animation: fadeIn 0.6s ease-out;
-        }
-
-        /* 加载状态 */
         .loading {
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 60px;
+            padding: 40px;
             color: #6c757d;
         }
-
         .loading::after {
             content: '';
-            width: 20px;
-            height: 20px;
+            width: 16px;
+            height: 16px;
             border: 2px solid #e9ecef;
             border-top: 2px solid #007bff;
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin-left: 10px;
+            margin-left: 8px;
         }
-
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-
-        /* 错误状态 */
         .error {
             background: #f8d7da;
             color: #721c24;
-            padding: 20px;
-            border-radius: 8px;
+            padding: 15px;
+            border-radius: 6px;
             border: 1px solid #f5c6cb;
             text-align: center;
         }
-
-        /* 成功提示 */
         .success-toast {
             position: fixed;
             top: 20px;
             right: 20px;
             background: #28a745;
             color: white;
-            padding: 12px 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+            padding: 10px 16px;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
             transform: translateX(100%);
             transition: transform 0.3s ease;
             z-index: 1000;
+            font-size: 13px;
         }
-
-        .success-toast.show {
-            transform: translateX(0);
+        .success-toast.show { transform: translateX(0); }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
         }
     </style>
 </head>
@@ -390,42 +351,120 @@
             <h1>📄 文档预览</h1>
             <p>转换结果已准备就绪，您可以预览、编辑或下载文档</p>
         </div>
-
-        <div class="controls">
-            <button id="download-btn" class="btn btn-primary">
-                <svg class="btn-icon" viewBox="0 0 24 24">
-                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-                </svg>
-                下载 Markdown
-            </button>
-            
-            <button id="download-txt-btn" class="btn btn-success">
-                <svg class="btn-icon" viewBox="0 0 24 24">
-                    <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM16 18H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-                </svg>
-                下载纯文本
-            </button>
-            
-            <button id="toggle-view-btn" class="btn btn-secondary view-toggle">
-                <svg class="btn-icon" viewBox="0 0 24 24">
-                    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                </svg>
-                切换到编辑器模式
-            </button>
-        </div>
-
-        <div class="content-area">
-            <div id="preview"></div>
-            <textarea id="markdown-editor" style="display: none;"></textarea>
+        <div class="main-layout">
+            <!-- 侧边栏 - 高级设置 -->
+            <div class="sidebar">
+                <div class="settings-section">
+                    <h3>🎛️ 内容处理设置</h3>
+                    <div class="setting-item">
+                        <span class="setting-label">智能编码检测</span>
+                        <div class="setting-control">
+                            <div class="toggle-switch active" data-setting="smartDecoding"></div>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">Markdown清理</span>
+                        <div class="setting-control">
+                            <div class="toggle-switch active" data-setting="markdownCleaning"></div>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">保留格式</span>
+                        <div class="setting-control">
+                            <div class="toggle-switch active" data-setting="preserveFormatting"></div>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">提取图片</span>
+                        <div class="setting-control">
+                            <div class="toggle-switch active" data-setting="extractImages"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h3>⚡ 性能设置</h3>
+                    <div class="setting-item">
+                        <span class="setting-label">批处理大小</span>
+                        <div class="setting-control">
+                            <input type="number" class="number-input" data-setting="batchSize" min="1" max="20" value="5">
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">超时时间(秒)</span>
+                        <div class="setting-control">
+                            <input type="number" class="number-input" data-setting="timeout" min="5" max="120" value="30">
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">重试次数</span>
+                        <div class="setting-control">
+                            <input type="number" class="number-input" data-setting="retryAttempts" min="0" max="5" value="3">
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h3>🔧 内容抓取策略</h3>
+                    <div class="setting-item">
+                        <span class="setting-label">展开折叠内容</span>
+                        <div class="setting-control">
+                            <div class="toggle-switch active" data-setting="expandCollapsed"></div>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">处理懒加载内容</span>
+                        <div class="setting-control">
+                            <div class="toggle-switch active" data-setting="processLazyLoaded"></div>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">移除干扰元素</span>
+                        <div class="setting-control">
+                            <div class="toggle-switch active" data-setting="removeNoise"></div>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">提取隐藏内容</span>
+                        <div class="setting-control">
+                            <div class="toggle-switch active" data-setting="extractHiddenContent"></div>
+                        </div>
+                    </div>
+                </div>
+                <button id="apply-settings-btn" class="apply-btn">应用设置并重新处理</button>
+            </div>
+            <!-- 主内容区域 -->
+            <div class="content-main">
+                <div class="controls">
+                    <button id="download-btn" class="btn btn-primary">
+                        <svg class="btn-icon" viewBox="0 0 24 24">
+                            <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                        </svg>
+                        下载 Markdown
+                    </button>
+                    <button id="download-txt-btn" class="btn btn-success">
+                        <svg class="btn-icon" viewBox="0 0 24 24">
+                            <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM16 18H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                        </svg>
+                        下载纯文本
+                    </button>
+                    <button id="toggle-view-btn" class="btn btn-secondary view-toggle">
+                        <svg class="btn-icon" viewBox="0 0 24 24">
+                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                        </svg>
+                        切换到编辑器模式
+                    </button>
+                </div>
+                <div class="content-area">
+                    <div id="preview"></div>
+                    <textarea id="markdown-editor" style="display: none;"></textarea>
+                </div>
+            </div>
         </div>
     </div>
-
     <div id="success-toast" class="success-toast">
         文件下载成功！
     </div>
-
     <script src="../../libs/marked.min.js"></script>
-    <script src="../../libs/easymde.min.js"></script> 
+    <script src="../../libs/easymde.min.js"></script>
     <script src="display.js"></script>
 </body>
 </html>

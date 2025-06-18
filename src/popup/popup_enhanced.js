@@ -31,11 +31,6 @@ class EnhancedPopup {
       this.processQueue();
     });
 
-    // 处理选中内容按钮
-    document.getElementById('process-selected-btn').addEventListener('click', () => {
-      this.processSelectedContent();
-    });
-
     // 快速操作按钮
     document.querySelectorAll('.quick-action').forEach(action => {
       action.addEventListener('click', (e) => {
@@ -93,6 +88,11 @@ class EnhancedPopup {
           this.updateUI(response);
         }
       });
+    });
+
+    // 处理选中按钮
+    document.getElementById('process-selected-btn').addEventListener('click', () => {
+      this.processSelectedContent();
     });
   }
 
@@ -165,20 +165,141 @@ class EnhancedPopup {
       await this.configManager.resetConfig();
       this.loadConfig();
       this.updateConfigUI();
+      this.showMessage('配置已重置为默认值', 'success');
     }
   }
 
   async exportConfig() {
-    const config = this.configManager.getConfig();
-    const configStr = JSON.stringify(config, null, 2);
+    try {
+      const exportData = this.configManager.exportConfig();
+      const configStr = JSON.stringify(exportData, null, 2);
+      
+      const blob = new Blob([configStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `batch-doc-converter-config-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      this.showMessage('配置文件导出成功', 'success');
+    } catch (error) {
+      console.error('导出配置失败:', error);
+      this.showMessage('导出配置失败: ' + error.message, 'error');
+    }
+  }
+
+  // 导入配置
+  importConfig() {
+    console.log('[Popup] 点击导入配置按钮');
+    const fileInput = document.getElementById('config-file-input');
+    if (fileInput) {
+      fileInput.click();
+    } else {
+      console.error('[Popup] 找不到文件输入框');
+      this.showMessage('导入功能初始化失败', 'error');
+    }
+  }
+
+  // 处理文件选择
+  async handleFileSelect(file) {
+    console.log('[Popup] 处理文件选择:', file);
     
-    const blob = new Blob([configStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `batch-doc-converter-config-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    if (!file) {
+      return;
+    }
+
+    // 验证文件类型
+    if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
+      this.showMessage('请选择有效的 JSON 配置文件', 'error');
+      return;
+    }
+
+    // 验证文件大小 (最大 1MB)
+    if (file.size > 1024 * 1024) {
+      this.showMessage('配置文件过大，请选择小于 1MB 的文件', 'error');
+      return;
+    }
+
+    try {
+      // 显示加载状态
+      this.showMessage('正在导入配置...', 'info');
+      
+      const result = await this.configManager.importConfigFromFile(file);
+      
+      if (result.success) {
+        this.loadConfig();
+        this.updateConfigUI();
+        this.showMessage('配置导入成功', 'success');
+      } else {
+        this.showMessage(result.message, 'error');
+      }
+    } catch (error) {
+      console.error('导入配置失败:', error);
+      this.showMessage('导入配置失败: ' + error.message, 'error');
+    }
+
+    // 清空文件输入框，允许重复选择同一文件
+    document.getElementById('config-file-input').value = '';
+  }
+
+  // 显示消息提示
+  showMessage(message, type = 'info') {
+    console.log('[Popup] 显示消息:', message, type);
+    
+    // 创建消息元素
+    const messageDiv = document.createElement('div');
+    messageDiv.style.cssText = `
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      padding: 10px 15px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      z-index: 10000;
+      max-width: 300px;
+      word-wrap: break-word;
+      animation: slideIn 0.3s ease-out;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    `;
+
+    // 根据类型设置样式
+    switch (type) {
+      case 'success':
+        messageDiv.style.background = '#d4edda';
+        messageDiv.style.color = '#155724';
+        messageDiv.style.border = '1px solid #c3e6cb';
+        break;
+      case 'error':
+        messageDiv.style.background = '#f8d7da';
+        messageDiv.style.color = '#721c24';
+        messageDiv.style.border = '1px solid #f5c6cb';
+        break;
+      case 'info':
+      default:
+        messageDiv.style.background = '#d1ecf1';
+        messageDiv.style.color = '#0c5460';
+        messageDiv.style.border = '1px solid #bee5eb';
+        break;
+    }
+
+    messageDiv.textContent = message;
+    document.body.appendChild(messageDiv);
+
+    // 3秒后自动移除
+    setTimeout(() => {
+      if (messageDiv.parentNode) {
+        messageDiv.style.animation = 'slideOut 0.3s ease-in';
+        setTimeout(() => {
+          if (messageDiv.parentNode) {
+            messageDiv.parentNode.removeChild(messageDiv);
+          }
+        }, 300);
+      }
+    }, 3000);
   }
 
   loadConfig() {
@@ -281,15 +402,7 @@ class EnhancedPopup {
       document.getElementById('toggle-selection-btn').disabled = false;
     }
   }
-
-  async importConfig() {
-    // Implementation of importConfig method
-  }
-
-  async handleFileSelect(file) {
-    // Implementation of handleFileSelect method
-  }
 }
 
 // 初始化增强版弹出窗口
-new EnhancedPopup(); 
+new EnhancedPopup();
