@@ -173,6 +173,77 @@ class ConfigManager {
     
     return errors;
   }
+
+  // 导入配置
+  async importConfig(configData) {
+    try {
+      // 验证配置数据
+      const validationErrors = this.validateConfig(configData);
+      if (validationErrors.length > 0) {
+        throw new Error(`配置验证失败: ${validationErrors.join(', ')}`);
+      }
+
+      // 合并配置，保留默认配置中缺失的字段
+      this.config = this.mergeConfig(this.defaultConfig, configData);
+      
+      // 保存配置
+      await this.saveConfig();
+      
+      return {
+        success: true,
+        message: '配置导入成功',
+        config: this.config
+      };
+    } catch (error) {
+      console.error('配置导入失败:', error);
+      return {
+        success: false,
+        message: `配置导入失败: ${error.message}`,
+        error: error
+      };
+    }
+  }
+
+  // 从文件导入配置
+  async importConfigFromFile(file) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      
+      reader.onload = async (e) => {
+        try {
+          const configData = JSON.parse(e.target.result);
+          const result = await this.importConfig(configData);
+          resolve(result);
+        } catch (error) {
+          resolve({
+            success: false,
+            message: `文件解析失败: ${error.message}`,
+            error: error
+          });
+        }
+      };
+      
+      reader.onerror = () => {
+        resolve({
+          success: false,
+          message: '文件读取失败',
+          error: new Error('文件读取失败')
+        });
+      };
+      
+      reader.readAsText(file);
+    });
+  }
+
+  // 导出配置
+  exportConfig() {
+    return {
+      config: this.config,
+      version: '1.0.0',
+      exportTime: new Date().toISOString(),
+      description: 'Batch Doc Converter 配置文件'
+    };
+  }
 }
 
 // 导出配置管理器实例

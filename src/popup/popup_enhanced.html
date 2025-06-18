@@ -187,6 +187,15 @@
       background: #1e7e34;
     }
     
+    .btn-danger {
+      background: #dc3545;
+      color: white;
+    }
+    
+    .btn-danger:hover {
+      background: #c82333;
+    }
+    
     .btn:disabled {
       background: #f8f9fa;
       color: #6c757d;
@@ -241,6 +250,82 @@
       color: white;
       border-color: #007bff;
     }
+
+    /* 隐藏文件输入框 */
+    .file-input-hidden {
+      display: none;
+    }
+
+    /* 配置操作按钮组 */
+    .config-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 15px;
+    }
+
+    .config-actions .btn {
+      flex: 1;
+      padding: 8px 12px;
+      font-size: 12px;
+    }
+
+    /* 导入配置提示 */
+    .import-tip {
+      font-size: 11px;
+      color: #6c757d;
+      margin-top: 8px;
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    /* 加载指示器 */
+    .loading-indicator {
+      display: none;
+      text-align: center;
+      padding: 10px;
+      color: #6c757d;
+      font-size: 12px;
+    }
+
+    .loading-indicator::after {
+      content: '';
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid #e9ecef;
+      border-top: 2px solid #007bff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-left: 8px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* 消息提示动画 */
+    @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideOut {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+    }
   </style>
 </head>
 <body>
@@ -264,13 +349,19 @@
     <div class="status-container">
       <p>已选择 <span id="link-count" class="link-count">0</span> 个链接</p>
       <p id="status-message" class="status-message"></p>
+      <div id="loading-indicator" class="loading-indicator">处理中...</div>
     </div>
 
     <div class="quick-actions">
-      <div class="quick-action" data-mode="links">链接模式</div>
+      <div class="quick-action active" data-mode="links">链接模式</div>
       <div class="quick-action" data-mode="text">文本模式</div>
       <div class="quick-action" data-mode="elements">元素模式</div>
       <div class="quick-action" data-mode="area">区域模式</div>
+    </div>
+
+    <!-- 处理选中内容按钮 -->
+    <div class="action-buttons" style="margin-top: 10px;">
+      <button id="process-selected-btn" class="btn btn-secondary" disabled>处理选中内容</button>
     </div>
   </div>
 
@@ -385,11 +476,19 @@
       </div>
     </div>
 
-    <div class="action-buttons">
-      <button id="reset-config-btn" class="btn btn-secondary">重置配置</button>
+    <div class="config-actions">
+      <button id="import-config-btn" class="btn btn-primary">导入配置</button>
       <button id="export-config-btn" class="btn btn-secondary">导出配置</button>
+      <button id="reset-config-btn" class="btn btn-secondary">重置配置</button>
+    </div>
+
+    <div class="import-tip">
+      支持导入之前导出的配置文件 (.json 格式)
     </div>
   </div>
+
+  <!-- 隐藏的文件输入框 -->
+  <input type="file" id="config-file-input" class="file-input-hidden" accept=".json" />
 
   <script src="../config/config_manager.js"></script>
   <script src="popup_enhanced.js"></script>

@@ -31,6 +31,11 @@ class EnhancedPopup {
       this.processQueue();
     });
 
+    // 处理选中内容按钮
+    document.getElementById('process-selected-btn').addEventListener('click', () => {
+      this.processSelectedContent();
+    });
+
     // 快速操作按钮
     document.querySelectorAll('.quick-action').forEach(action => {
       action.addEventListener('click', (e) => {
@@ -61,6 +66,16 @@ class EnhancedPopup {
       this.exportConfig();
     });
 
+    // 导入配置按钮
+    document.getElementById('import-config-btn').addEventListener('click', () => {
+      this.importConfig();
+    });
+
+    // 文件输入框事件
+    document.getElementById('config-file-input').addEventListener('change', (e) => {
+      this.handleFileSelect(e.target.files[0]);
+    });
+
     // 监听后台消息
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.type === 'STATE_UPDATE') {
@@ -78,11 +93,6 @@ class EnhancedPopup {
           this.updateUI(response);
         }
       });
-    });
-
-    // 处理选中按钮
-    document.getElementById('process-selected-btn').addEventListener('click', () => {
-      this.processSelectedContent();
     });
   }
 
@@ -270,6 +280,14 @@ class EnhancedPopup {
       document.getElementById('process-btn').disabled = false;
       document.getElementById('toggle-selection-btn').disabled = false;
     }
+  }
+
+  async importConfig() {
+    // Implementation of importConfig method
+  }
+
+  async handleFileSelect(file) {
+    // Implementation of handleFileSelect method
   }
 }
 
