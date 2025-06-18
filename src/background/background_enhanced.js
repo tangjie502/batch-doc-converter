@@ -215,7 +215,7 @@ async function processLinksQueue(config = null) {
       }
 
       // 使用offscreen处理
-      const result = await processUrlInOffscreen(arrayBuffer, contentType, url);
+      const result = await processUrlInOffscreen(arrayBuffer, contentType, url, config);
       markdownDocs.push(result.markdown);
       
     } catch (error) {
@@ -281,7 +281,7 @@ async function processSelectedContent(contentData, config = null) {
               
               const arrayBuffer = await response.arrayBuffer();
               const contentType = response.headers.get('content-type') || '';
-              const result = await processUrlInOffscreen(arrayBuffer, contentType, item.url);
+              const result = await processUrlInOffscreen(arrayBuffer, contentType, item.url, config);
               
               markdown = `# ${result.title}\n\n${result.markdown}`;
             }
@@ -297,7 +297,7 @@ async function processSelectedContent(contentData, config = null) {
           case 'area':
             console.log('[Background] 处理HTML内容');
             // 处理HTML元素内容
-            const result = await processHtmlContent(item.content);
+            const result = await processHtmlContent(item.content, config);
             markdown = `# 选中内容\n\n${result}`;
             break;
         }
@@ -340,8 +340,8 @@ async function processSelectedContent(contentData, config = null) {
 }
 
 // 新增：处理HTML内容
-async function processHtmlContent(htmlContent) {
-  console.log('[Background] 处理HTML内容');
+async function processHtmlContent(htmlContent, config = {}) {
+  console.log('[Background] 处理HTML内容，配置:', config);
   
   try {
     await setupOffscreenDocument(OFFSCREEN_DOCUMENT_PATH);
@@ -350,7 +350,8 @@ async function processHtmlContent(htmlContent) {
     chrome.runtime.sendMessage({
       type: 'process-html-content',
       target: 'offscreen',
-      htmlContent: htmlContent
+      htmlContent: htmlContent,
+      config: config
     });
 
     return new Promise((resolve) => {
@@ -375,8 +376,8 @@ async function processHtmlContent(htmlContent) {
 }
 
 // 更新了与 Offscreen 的交互函数
-async function processUrlInOffscreen(arrayBuffer, contentType, url) {
-  console.log('[Background] 处理URL:', url);
+async function processUrlInOffscreen(arrayBuffer, contentType, url, config = {}) {
+  console.log('[Background] 处理URL:', url, '配置:', config);
   
   try {
     await setupOffscreenDocument(OFFSCREEN_DOCUMENT_PATH);
@@ -390,7 +391,8 @@ async function processUrlInOffscreen(arrayBuffer, contentType, url) {
       target: 'offscreen',
       arrayBuffer: Array.from(uint8Array),
       contentType: contentType,
-      url: url
+      url: url,
+      config: config
     });
 
     // 等待返回结果

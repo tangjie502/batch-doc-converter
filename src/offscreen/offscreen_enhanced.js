@@ -23,8 +23,57 @@ function initTurndownService() {
   }
 }
 
+// 预处理HTML内容
+function preprocessHtml(htmlContent, config = {}) {
+  console.log('[Offscreen] 预处理HTML内容，配置:', config);
+  
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = htmlContent;
+  
+  // 根据配置处理图片
+  if (config.contentProcessing && config.contentProcessing.extractImages === false) {
+    console.log('[Offscreen] 移除图片元素');
+    // 移除所有图片元素
+    const images = tempDiv.querySelectorAll('img');
+    images.forEach(img => {
+      // 可以选择完全移除或者替换为文本描述
+      const altText = img.alt || img.title || '图片';
+      const textNode = document.createTextNode(`[${altText}]`);
+      img.parentNode.replaceChild(textNode, img);
+    });
+  }
+  
+  // 根据配置处理其他内容
+  if (config.contentExtraction) {
+    // 展开折叠内容
+    if (config.contentExtraction.expandCollapsed) {
+      const collapsedElements = tempDiv.querySelectorAll('[style*="display: none"], [hidden], .collapsed, .hidden');
+      collapsedElements.forEach(el => {
+        el.style.display = '';
+        el.removeAttribute('hidden');
+        el.classList.remove('collapsed', 'hidden');
+      });
+    }
+    
+    // 移除干扰元素
+    if (config.contentExtraction.removeNoise) {
+      const noiseSelectors = [
+        'script', 'style', 'noscript', 'iframe', 'embed', 'object',
+        '.ad', '.advertisement', '.banner', '.sidebar', '.footer',
+        '.header', '.nav', '.navigation', '.menu', '.toolbar'
+      ];
+      noiseSelectors.forEach(selector => {
+        const elements = tempDiv.querySelectorAll(selector);
+        elements.forEach(el => el.remove());
+      });
+    }
+  }
+  
+  return tempDiv.innerHTML;
+}
+
 // 处理HTML内容转换为Markdown
-function processHtmlContent(htmlContent) {
+function processHtmlContent(htmlContent, config = {}) {
   console.log('[Offscreen] 处理HTML内容');
   
   if (!turndownService) {
@@ -32,9 +81,12 @@ function processHtmlContent(htmlContent) {
   }
   
   try {
+    // 预处理HTML内容
+    const processedHtml = preprocessHtml(htmlContent, config);
+    
     // 创建临时DOM元素来解析HTML
     const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = htmlContent;
+    tempDiv.innerHTML = processedHtml;
     
     // 使用Turndown转换HTML为Markdown
     const markdown = turndownService.turndown(tempDiv);
@@ -48,7 +100,7 @@ function processHtmlContent(htmlContent) {
 }
 
 // 处理原始HTML数据
-function processRawHtml(arrayBuffer, contentType, url) {
+function processRawHtml(arrayBuffer, contentType, url, config = {}) {
   console.log('[Offscreen] 处理原始HTML:', url);
   
   try {
@@ -57,7 +109,7 @@ function processRawHtml(arrayBuffer, contentType, url) {
     const htmlContent = decoder.decode(arrayBuffer);
     
     // 处理HTML内容
-    const markdown = processHtmlContent(htmlContent);
+    const markdown = processHtmlContent(htmlContent, config);
     
     console.log('[Offscreen] 原始HTML处理完成');
     return markdown;
@@ -80,7 +132,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     switch (message.type) {
       case 'process-html-content':
         console.log('[Offscreen] 处理HTML内容消息');
-        const markdown = processHtmlContent(message.htmlContent);
+        const markdown = processHtmlContent(message.htmlContent, message.config || {});
         
         // 发送结果回background
         chrome.runtime.sendMessage({
@@ -96,7 +148,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const result = processRawHtml(
           new Uint8Array(message.arrayBuffer), 
           message.contentType, 
-          message.url
+          message.url,
+          message.config || {}
         );
         
         // 发送结果回background
