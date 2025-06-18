@@ -8,7 +8,7 @@ let state = {
   status: ""
 };
 
-const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
+const OFFSCREEN_DOCUMENT_PATH = '/src/offscreen/offscreen.html';
 
 // 主消息监听器 (保持不变)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -43,8 +43,8 @@ async function toggleSelectionMode() {
     if (tab) {
       state.isSelectionActive = true;
       state.activeTabId = tab.id;
-      await chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: ['styles.css'] });
-      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content_select.js'] });
+      await chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: ['assets/styles/styles.css'] });
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['src/content/content_select.js'] });
     }
   }
   updatePopupState();
@@ -169,7 +169,7 @@ ${state.selectedLinks.map((url, index) => `${index + 1}. ${url}`).join('\n')}
   const completeMarkdown = documentHeader + finalMarkdown;
   
   await chrome.storage.local.set({ finalMarkdown: completeMarkdown });
-  await chrome.tabs.create({ url: chrome.runtime.getURL('display.html') });
+  await chrome.tabs.create({ url: chrome.runtime.getURL('src/display/display.html') });
 
   // 重置状态 (此部分逻辑不变)
   state.status = `任务完成！共处理 ${totalLinks} 个链接。`;
