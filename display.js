@@ -2,6 +2,7 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
     const downloadBtn = document.getElementById('download-btn');
+    const downloadTxtBtn = document.getElementById('download-txt-btn');
     const previewDiv = document.getElementById('preview');
     const editorTextarea = document.getElementById('markdown-editor');
 
@@ -44,6 +45,59 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
+        // ---- Markdown 转纯文本函数 ----
+        function markdownToText(markdown) {
+            if (!markdown) return '';
+            
+            let text = markdown;
+            
+            // 移除代码块
+            text = text.replace(/```[\s\S]*?```/g, '');
+            
+            // 移除行内代码
+            text = text.replace(/`([^`]+)`/g, '$1');
+            
+            // 移除链接，保留文本
+            text = text.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');
+            
+            // 移除图片
+            text = text.replace(/!\[([^\]]*)\]\([^)]*\)/g, '');
+            
+            // 移除粗体和斜体标记
+            text = text.replace(/\*\*([^*]+)\*\*/g, '$1');
+            text = text.replace(/\*([^*]+)\*/g, '$1');
+            text = text.replace(/__([^_]+)__/g, '$1');
+            text = text.replace(/_([^_]+)_/g, '$1');
+            
+            // 移除删除线
+            text = text.replace(/~~([^~]+)~~/g, '$1');
+            
+            // 移除引用标记
+            text = text.replace(/^>\s*/gm, '');
+            
+            // 移除列表标记
+            text = text.replace(/^[\s]*[-*+]\s+/gm, '');
+            text = text.replace(/^[\s]*\d+\.\s+/gm, '');
+            
+            // 移除标题标记，保留文本
+            text = text.replace(/^#{1,6}\s+(.+)$/gm, '$1');
+            
+            // 移除水平分割线
+            text = text.replace(/^[-*_]{3,}$/gm, '');
+            
+            // 移除表格标记
+            text = text.replace(/\|/g, ' ');
+            text = text.replace(/^[\s]*[-|]+\s*$/gm, '');
+            
+            // 清理多余的空行
+            text = text.replace(/\n\s*\n\s*\n/g, '\n\n');
+            
+            // 清理行首行尾空白
+            text = text.trim();
+            
+            return text;
+        }
+
         // ---- 下载逻辑 ----
         downloadBtn.addEventListener('click', () => {
             // 从 EasyMDE 实例获取最新内容
@@ -53,6 +107,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             const a = document.createElement('a');
             a.href = url;
             a.download = `converted-docs-${Date.now()}.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // ---- TXT 下载逻辑 ----
+        downloadTxtBtn.addEventListener('click', () => {
+            // 从 EasyMDE 实例获取最新内容并转换为纯文本
+            const markdownContent = easyMDE.value();
+            const textContent = markdownToText(markdownContent);
+            
+            const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `converted-docs-${Date.now()}.txt`;
             a.click();
             URL.revokeObjectURL(url);
         });
