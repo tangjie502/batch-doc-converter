@@ -122,7 +122,7 @@ batch-doc-converter/
 
 1. **下载项目**
    ```bash
-   git clone https://github.com/your-username/batch-doc-converter.git
+   git clone https://github.com/tangjie502/batch-doc-converter.git
    cd batch-doc-converter
    ```
 
@@ -210,7 +210,7 @@ batch-doc-converter/
 
 1. **克隆仓库**
    ```bash
-   git clone https://github.com/your-username/batch-doc-converter.git
+   git clone https://github.com/tangjie502/batch-doc-converter.git
    cd batch-doc-converter
    ```
 
