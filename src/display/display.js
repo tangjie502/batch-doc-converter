@@ -5,6 +5,7 @@ class EnhancedDisplay {
     this.easyMDE = null;
     this.currentView = 'preview';
     this.originalMarkdown = '';
+    this.originalHtml = '';
     this.currentConfig = this.getDefaultConfig();
     this.init();
   }
@@ -116,6 +117,11 @@ class EnhancedDisplay {
         this.toggleView();
       }
     });
+
+    // 刷新按钮
+    document.getElementById('refresh-btn').addEventListener('click', () => {
+      this.loadContent();
+    });
   }
 
   async loadContent() {
@@ -123,24 +129,39 @@ class EnhancedDisplay {
     previewDiv.innerHTML = '<div class="loading">正在加载文档内容...</div>';
 
     try {
-      const result = await chrome.storage.local.get('finalMarkdown');
-      const markdownContent = result.finalMarkdown;
-
-      if (markdownContent) {
-        this.originalMarkdown = markdownContent;
-        await this.processAndDisplayContent(markdownContent);
-        await chrome.storage.local.remove('finalMarkdown');
+      // 新增：获取时间戳，用于验证内容是否是最新的
+      const result = await chrome.storage.local.get(['finalMarkdown', 'originalHtml', 'lastUpdateTime']);
+      
+      // 新增：检查是否有时间戳，如果没有说明是旧数据
+      if (!result.lastUpdateTime) {
+        console.log('[Display] 检测到旧数据，清理并重新加载');
+        await chrome.storage.local.remove(['finalMarkdown', 'originalHtml']);
+        previewDiv.innerHTML = '<div class="error">未找到有效的文档内容，请重新选择内容</div>';
+        return;
+      }
+      
+      // 新增：检查时间戳是否太旧（超过5分钟）
+      const timeDiff = Date.now() - result.lastUpdateTime;
+      if (timeDiff > 5 * 60 * 1000) { // 5分钟
+        console.log('[Display] 检测到过期数据，清理并重新加载');
+        await chrome.storage.local.remove(['finalMarkdown', 'originalHtml', 'lastUpdateTime']);
+        previewDiv.innerHTML = '<div class="error">文档内容已过期，请重新选择内容</div>';
+        return;
+      }
+      
+      this.originalHtml = result.originalHtml || '';
+      this.originalMarkdown = result.finalMarkdown || '';
+      
+      console.log('[Display] 加载内容，时间戳:', new Date(result.lastUpdateTime).toLocaleString());
+      console.log('[Display] 原始HTML长度:', this.originalHtml.length);
+      console.log('[Display] Markdown长度:', this.originalMarkdown.length);
+      
+      if (this.originalHtml && this.originalMarkdown) {
+        console.log('[Display] 找到原始HTML，长度:', this.originalHtml.length);
+        await this.processAndDisplayContent(this.originalMarkdown);
       } else {
-        previewDiv.innerHTML = `
-          <div class="error">
-            <h3>⚠️ 未找到文档内容</h3>
-            <p>请先使用扩展程序选择并处理文档内容。</p>
-            <button onclick="window.close()" class="btn btn-primary" style="margin-top: 15px;">
-              关闭页面
-            </button>
-          </div>
-        `;
-        this.disableButtons();
+        console.log('[Display] 未找到原始HTML，使用现有markdown');
+        await this.processAndDisplayContent(this.originalMarkdown);
       }
     } catch (error) {
       console.error('加载内容失败:', error);
@@ -216,102 +237,101 @@ class EnhancedDisplay {
     } else {
       this.easyMDE = new EasyMDE({
         element: editorTextarea,
-        initialValue: content,
+        value: content,
         spellChecker: false,
-        autofocus: false,
-        placeholder: '在这里编辑您的文档...',
+        autosave: {
+          enabled: true,
+          uniqueId: 'display-editor',
+          delay: 1000,
+        },
         toolbar: [
           'bold', 'italic', 'heading', '|',
           'quote', 'unordered-list', 'ordered-list', '|',
           'link', 'image', '|',
           'preview', 'side-by-side', 'fullscreen', '|',
           'guide'
-        ],
-        status: ['lines', 'words', 'cursor'],
-        theme: 'default'
+        ]
       });
-    }
-
-    // 默认隐藏编辑器
-    const editorWrapper = document.querySelector('.EasyMDEContainer');
-    if (editorWrapper) {
-      editorWrapper.style.display = 'none';
     }
   }
 
   displayPreview(content) {
-    try {
-      // 配置 marked 选项
-      marked.setOptions({
-        breaks: true,
-        gfm: true,
-        headerIds: true,
-        mangle: false
-      });
-      
-      document.getElementById('preview').innerHTML = marked.parse(content);
-    } catch (error) {
-      console.error('Markdown 解析错误:', error);
-      document.getElementById('preview').innerHTML = '<div class="error">文档解析失败，请检查内容格式</div>';
+    const previewDiv = document.getElementById('preview');
+    
+    if (this.currentView === 'preview') {
+      // 使用 marked.js 渲染 Markdown
+      if (typeof marked !== 'undefined') {
+        previewDiv.innerHTML = marked.parse(content);
+      } else {
+        // 简单的 Markdown 渲染
+        previewDiv.innerHTML = this.simpleMarkdownRender(content);
+      }
+    } else {
+      previewDiv.innerHTML = '<pre>' + this.escapeHtml(content) + '</pre>';
     }
   }
 
+  simpleMarkdownRender(markdown) {
+    let html = markdown;
+    
+    // 标题
+    html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+    html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+    html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+    
+    // 粗体和斜体
+    html = html.replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>');
+    html = html.replace(/\*(.*)\*/gim, '<em>$1</em>');
+    
+    // 链接
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank">$1</a>');
+    
+    // 图片
+    html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/gim, '<img src="$2" alt="$1" style="max-width: 100%; height: auto;">');
+    
+    // 代码块
+    html = html.replace(/```([\s\S]*?)```/gim, '<pre><code>$1</code></pre>');
+    
+    // 行内代码
+    html = html.replace(/`([^`]+)`/gim, '<code>$1</code>');
+    
+    // 列表
+    html = html.replace(/^\* (.*$)/gim, '<li>$1</li>');
+    html = html.replace(/^- (.*$)/gim, '<li>$1</li>');
+    
+    // 段落
+    html = html.replace(/\n\n/g, '</p><p>');
+    html = '<p>' + html + '</p>';
+    
+    return html;
+  }
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
   toggleView() {
-    if (this.currentView === 'preview') {
-      // 切换到编辑器
-      document.getElementById('preview').style.display = 'none';
-      const editorWrapper = document.querySelector('.EasyMDEContainer');
-      if (editorWrapper) {
-        editorWrapper.style.display = 'block';
-      }
-      document.getElementById('toggle-view-btn').innerHTML = `
-        <svg class="btn-icon" viewBox="0 0 24 24">
-          <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-        </svg>
-        切换到预览模式
-      `;
-      this.currentView = 'editor';
-      
-      // 延迟聚焦编辑器
-      setTimeout(() => {
-        this.easyMDE.codemirror.focus();
-      }, 100);
-    } else {
-      // 切换到预览
-      const updatedContent = this.easyMDE.value();
-      this.displayPreview(updatedContent);
-      
-      document.getElementById('preview').style.display = 'block';
-      const editorWrapper = document.querySelector('.EasyMDEContainer');
-      if (editorWrapper) {
-        editorWrapper.style.display = 'none';
-      }
-      document.getElementById('toggle-view-btn').innerHTML = `
-        <svg class="btn-icon" viewBox="0 0 24 24">
-          <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-        </svg>
-        切换到编辑器模式
-      `;
-      this.currentView = 'preview';
-    }
+    this.currentView = this.currentView === 'preview' ? 'raw' : 'preview';
+    const toggleBtn = document.getElementById('toggle-view-btn');
+    toggleBtn.textContent = this.currentView === 'preview' ? '查看源码' : '查看预览';
+    
+    const content = this.easyMDE ? this.easyMDE.value() : this.originalMarkdown;
+    this.displayPreview(content);
   }
 
   toggleSetting(settingPath) {
     const keys = settingPath.split('.');
     let current = this.currentConfig;
     
-    // 导航到父对象
     for (let i = 0; i < keys.length - 1; i++) {
-      if (!(keys[i] in current)) {
-        current[keys[i]] = {};
-      }
       current = current[keys[i]];
     }
     
-    // 切换值
-    current[keys[keys.length - 1]] = !current[keys[keys.length - 1]];
+    const lastKey = keys[keys.length - 1];
+    current[lastKey] = !current[lastKey];
     
-    // 更新UI
     this.updateSettingsUI();
   }
 
@@ -319,16 +339,12 @@ class EnhancedDisplay {
     const keys = settingPath.split('.');
     let current = this.currentConfig;
     
-    // 导航到父对象
     for (let i = 0; i < keys.length - 1; i++) {
-      if (!(keys[i] in current)) {
-        current[keys[i]] = {};
-      }
       current = current[keys[i]];
     }
     
-    // 设置值
-    current[keys[keys.length - 1]] = value;
+    const lastKey = keys[keys.length - 1];
+    current[lastKey] = value;
   }
 
   updateSettingsUI() {
@@ -336,10 +352,10 @@ class EnhancedDisplay {
     document.querySelectorAll('.toggle-switch').forEach(toggle => {
       const settingPath = toggle.dataset.setting;
       const value = this.getSettingValue(settingPath);
-      if (value) {
-        toggle.classList.add('active');
-      } else {
-        toggle.classList.remove('active');
+      
+      if (value !== null) {
+        toggle.classList.toggle('active', value);
+        toggle.textContent = value ? '开启' : '关闭';
       }
     });
 
@@ -347,6 +363,7 @@ class EnhancedDisplay {
     document.querySelectorAll('.number-input').forEach(input => {
       const settingPath = input.dataset.setting;
       const value = this.getSettingValue(settingPath);
+      
       if (value !== null) {
         input.value = value;
       }
@@ -369,18 +386,76 @@ class EnhancedDisplay {
   }
 
   async applySettings() {
-    try {
-      // 保存配置
-      await chrome.storage.local.set({ extensionConfig: this.currentConfig });
-      
-      // 重新处理内容
+    console.log('[Display] 开始应用设置并重新处理');
+    
+    if (this.originalHtml) {
+      console.log('[Display] 使用原始HTML重新处理');
+      try {
+        const newMarkdown = await this.reprocessHtmlWithCurrentSettings();
+        if (newMarkdown) {
+          await this.processAndDisplayContent(newMarkdown);
+          this.showMessage('设置已应用，内容已重新处理', 'success');
+        } else {
+          throw new Error('重新处理返回空结果');
+        }
+      } catch (error) {
+        console.error('[Display] 重新处理失败:', error);
+        this.showMessage('重新处理失败，使用现有内容: ' + error.message, 'error');
+        // 回退到现有内容
+        await this.processAndDisplayContent(this.originalMarkdown);
+      }
+    } else {
+      console.log('[Display] 未找到原始HTML，仅对当前内容做二次处理');
       await this.processAndDisplayContent(this.originalMarkdown);
-      
-      this.showMessage('设置已应用，内容已重新处理', 'success');
-    } catch (error) {
-      console.error('应用设置失败:', error);
-      this.showMessage('应用设置失败: ' + error.message, 'error');
+      this.showMessage('未找到原始HTML，仅对当前内容做二次处理', 'info');
     }
+  }
+
+  async reprocessHtmlWithCurrentSettings() {
+    return new Promise((resolve, reject) => {
+      console.log('[Display] 发送重新处理请求，配置:', this.currentConfig);
+      
+      // 尝试多种消息类型
+      const messageTypes = [
+        'REPROCESS_HTML_TO_MARKDOWN',
+        'process-html-content',
+        'PROCESS_HTML_WITH_CONFIG'
+      ];
+      
+      let attempts = 0;
+      const maxAttempts = messageTypes.length;
+      
+      const tryNextMessageType = () => {
+        if (attempts >= maxAttempts) {
+          reject(new Error('所有消息类型都失败'));
+          return;
+        }
+        
+        const messageType = messageTypes[attempts];
+        console.log(`[Display] 尝试消息类型: ${messageType}`);
+        
+        chrome.runtime.sendMessage({
+          type: messageType,
+          html: this.originalHtml,
+          config: this.currentConfig
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.log(`[Display] 消息类型 ${messageType} 失败:`, chrome.runtime.lastError);
+            attempts++;
+            setTimeout(tryNextMessageType, 100);
+          } else if (response && response.markdown) {
+            console.log(`[Display] 消息类型 ${messageType} 成功`);
+            resolve(response.markdown);
+          } else {
+            console.log(`[Display] 消息类型 ${messageType} 返回无效响应:`, response);
+            attempts++;
+            setTimeout(tryNextMessageType, 100);
+          }
+        });
+      };
+      
+      tryNextMessageType();
+    });
   }
 
   downloadMarkdown() {

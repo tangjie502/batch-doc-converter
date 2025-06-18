@@ -114,6 +114,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true, data: `已处理: ${message.url}` });
         break;
         
+      case 'REPROCESS_HTML_TO_MARKDOWN':
+        const { html, config } = message;
+        const md = processHtmlContent(html, config);
+        sendResponse({ markdown: md });
+        return true;
+        
       default:
         console.warn('[Offscreen] 未知消息类型:', message.type);
         sendResponse({ success: false, error: '未知消息类型' });

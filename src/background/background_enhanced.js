@@ -63,6 +63,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           updatePopupState();
         }); 
         break;
+      case 'PROCESS_LINKS_QUEUE':
+        console.log('[Background] 处理批量链接队列:', message);
+        handleProcessLinksQueue(message);
+        break;
       case 'PROCESSING_COMPLETE':
         handleProcessingComplete(message);
         break;
@@ -132,22 +136,24 @@ async function toggleSelectionMode(config = null) {
         state.isSelectionActive = true;
         state.activeTabId = tab.id;
         
-        // 注入CSS
+        // 先注入CSS
         try {
           await chrome.scripting.insertCSS({ 
             target: { tabId: tab.id }, 
             files: ['assets/styles/enhanced_styles.css'] 
           });
+          console.log('[Background] CSS注入成功');
         } catch (error) {
           console.warn('[Background] 注入CSS失败:', error);
         }
         
-        // 注入增强的内容选择脚本
+        // 再注入脚本
         try {
           await chrome.scripting.executeScript({ 
             target: { tabId: tab.id }, 
             files: ['src/content/content_select_enhanced.js'] 
           });
+          console.log('[Background] 脚本注入成功');
         } catch (error) {
           console.error('[Background] 注入脚本失败:', error);
           throw error;
@@ -161,12 +167,56 @@ async function toggleSelectionMode(config = null) {
   updatePopupState();
 }
 
-// 更新：处理链接队列
+// 修复批量链接队列处理函数
+async function handleProcessLinksQueue(message) {
+  console.log('[Background] 开始处理批量链接队列');
+  
+  try {
+    // 如果消息中包含URL数组，使用它；否则使用state中的链接
+    const urls = message.urls || state.selectedLinks;
+    const config = message.config || null;
+    
+    console.log('[Background] 要处理的URL数量:', urls.length);
+    console.log('[Background] URL列表:', urls);
+    
+    if (urls.length === 0) {
+      console.log('[Background] 没有URL需要处理');
+      state.status = '没有链接需要处理';
+      updatePopupState();
+      return;
+    }
+    
+    // 更新状态
+    state.selectedLinks = urls;
+    state.status = `开始处理 ${urls.length} 个链接`;
+    updatePopupState();
+    
+    // 调用现有的处理函数
+    await processLinksQueue(config);
+    
+  } catch (error) {
+    console.error('[Background] 处理批量链接队列失败:', error);
+    state.status = '批量处理失败: ' + error.message;
+    updatePopupState();
+  }
+}
+
+// 修复 processLinksQueue 函数，添加存储清理
 async function processLinksQueue(config = null) {
-  if (state.selectedLinks.length === 0) return;
+  if (state.selectedLinks.length === 0) {
+    console.log('[Background] 没有链接需要处理');
+    return;
+  }
+
+  console.log('[Background] 开始处理链接队列，数量:', state.selectedLinks.length);
+  
+  // 清理旧的存储数据
+  console.log('[Background] 清理旧的存储数据');
+  await chrome.storage.local.remove(['finalMarkdown', 'originalHtml', 'lastUpdateTime']);
 
   const totalLinks = state.selectedLinks.length;
   let markdownDocs = [];
+  let rawHtmlArray = [];
 
   for (let i = 0; i < totalLinks; i++) {
     const url = state.selectedLinks[i];
@@ -174,6 +224,8 @@ async function processLinksQueue(config = null) {
     updatePopupState();
 
     try {
+      console.log(`[Background] 处理第 ${i + 1}/${totalLinks} 个链接:`, url);
+      
       // 添加更完整的请求头来模拟真实浏览器
       const response = await fetch(url, {
         method: 'GET',
@@ -217,19 +269,38 @@ async function processLinksQueue(config = null) {
       // 使用offscreen处理
       const result = await processUrlInOffscreen(arrayBuffer, contentType, url, config);
       markdownDocs.push(result.markdown);
+      rawHtmlArray.push(result.rawHtml || '');
       
     } catch (error) {
       console.error(`[Background] 处理URL失败: ${url}`, error);
       markdownDocs.push(`# 处理失败: ${url}\n\n错误信息: ${error.message}`);
+      rawHtmlArray.push('');
     }
   }
   
   // 合并并保存结果
   if (markdownDocs.length > 0) {
-    console.log('[Background] 保存处理结果');
+    console.log('[Background] 保存处理结果，共', markdownDocs.length, '个文档');
     const finalMarkdown = markdownDocs.join('\n\n---\n\n');
-    await chrome.storage.local.set({ finalMarkdown: finalMarkdown });
-    await chrome.tabs.create({ url: chrome.runtime.getURL('src/display/display.html') });
+    const combinedRawHtml = rawHtmlArray.join('\n\n<!-- 分隔符 -->\n\n');
+    
+    await chrome.storage.local.set({
+      finalMarkdown: finalMarkdown,
+      originalHtml: combinedRawHtml,
+      lastUpdateTime: Date.now(),
+      processedCount: markdownDocs.length
+    });
+    
+    // 检查是否已有预览页面，如果有则刷新，没有则创建
+    const tabs = await chrome.tabs.query({ url: chrome.runtime.getURL('src/display/display.html') });
+    if (tabs.length > 0) {
+      console.log('[Background] 刷新现有预览页面');
+      await chrome.tabs.reload(tabs[0].id, { bypassCache: true });
+      await chrome.tabs.update(tabs[0].id, { active: true });
+    } else {
+      console.log('[Background] 创建新的预览页面');
+      await chrome.tabs.create({ url: chrome.runtime.getURL('src/display/display.html') });
+    }
   }
 
   // 重置状态
@@ -238,102 +309,122 @@ async function processLinksQueue(config = null) {
   updatePopupState();
 }
 
-// 新增：处理选中的内容
+// 修复 processSelectedContent 函数，支持处理多个内容
 async function processSelectedContent(contentData, config = null) {
-  // 防止重复处理
   if (isProcessing) {
     console.log('[Background] 已有处理任务在进行中，跳过重复请求');
     return;
   }
-  
   isProcessing = true;
-  console.log('[Background] 开始处理选中内容:', contentData);
-  
   try {
     if (!contentData || contentData.length === 0) {
       console.log('[Background] 没有选中内容');
       return;
     }
 
-    const markdownDocs = [];
-    const totalItems = contentData.length;
+    console.log('[Background] 开始处理选中内容:', contentData.length, '个项目');
 
-    for (let i = 0; i < totalItems; i++) {
+    // 新增：清理旧的存储数据
+    console.log('[Background] 清理旧的存储数据');
+    await chrome.storage.local.remove(['finalMarkdown', 'originalHtml']);
+
+    let markdownDocs = [];
+    let rawHtmlArray = [];
+
+    // 修复：处理所有选中的内容，而不是只处理第一个
+    for (let i = 0; i < contentData.length; i++) {
       const item = contentData[i];
-      state.status = `处理选中内容: ${i + 1} / ${totalItems}`;
-      updatePopupState();
+      console.log(`[Background] 处理第 ${i + 1}/${contentData.length} 个项目:`, item.type);
+      
+      let markdown = '';
+      let rawHtml = '';
 
-      try {
-        let markdown = '';
-        
-        switch (item.type) {
-          case 'links':
-            if (item.url) {
-              console.log('[Background] 处理链接:', item.url);
-              // 处理链接内容
+      switch (item.type) {
+        case 'links':
+          if (item.url) {
+            console.log('[Background] 处理链接:', item.url);
+            try {
               const response = await fetch(item.url, {
                 headers: {
                   'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                  'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8'
+                  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                  'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+                  'Cache-Control': 'no-cache'
                 }
               });
               
-              const arrayBuffer = await response.arrayBuffer();
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              
+              rawHtml = await response.text();
+              const arrayBuffer = new TextEncoder().encode(rawHtml).buffer;
               const contentType = response.headers.get('content-type') || '';
               const result = await processUrlInOffscreen(arrayBuffer, contentType, item.url, config);
-              
-              markdown = `# ${result.title}\n\n${result.markdown}`;
+              markdown = `# ${result.title || item.url}\n\n${result.markdown}`;
+            } catch (error) {
+              console.error('[Background] 处理链接失败:', item.url, error);
+              markdown = `# 处理失败: ${item.url}\n\n错误信息: ${error.message}`;
+              rawHtml = '';
             }
-            break;
-            
-          case 'text':
-            console.log('[Background] 处理文本内容');
-            // 直接处理文本内容
-            markdown = `# 选中文本\n\n${item.content}`;
-            break;
-            
-          case 'elements':
-          case 'area':
-            console.log('[Background] 处理HTML内容');
-            // 处理HTML元素内容
+          }
+          break;
+        case 'text':
+          console.log('[Background] 处理文本内容');
+          markdown = `# 选中文本 ${i + 1}\n\n${item.content}`;
+          rawHtml = item.content;
+          break;
+        case 'elements':
+        case 'area':
+          console.log('[Background] 处理元素/区域内容');
+          rawHtml = item.content;
+          try {
             const result = await processHtmlContent(item.content, config);
-            markdown = `# 选中内容\n\n${result}`;
-            break;
-        }
-        
-        if (markdown) {
-          markdownDocs.push(markdown);
-        }
-        
-      } catch (error) {
-        console.error('处理选中内容失败:', error);
-        markdownDocs.push(`# 处理失败\n\n错误信息: ${error.message}`);
+            markdown = `# 选中内容 ${i + 1}\n\n${result}`;
+          } catch (error) {
+            console.error('[Background] 处理HTML内容失败:', error);
+            markdown = `# 处理失败: 内容 ${i + 1}\n\n错误信息: ${error.message}`;
+          }
+          break;
       }
-    }
-    
-    // 合并并保存结果
-    if (markdownDocs.length > 0) {
-      console.log('[Background] 保存处理结果');
-      const finalMarkdown = markdownDocs.join('\n\n---\n\n');
-      await chrome.storage.local.set({ finalMarkdown: finalMarkdown });
-      await chrome.tabs.create({ url: chrome.runtime.getURL('src/display/display.html') });
+
+      if (markdown) {
+        markdownDocs.push(markdown);
+        rawHtmlArray.push(rawHtml);
+      }
     }
 
-    // 重置状态
-    state.status = `任务完成！共处理 ${totalItems} 个选中项目。`;
-    if (state.activeTabId) {
-      try {
-        await chrome.tabs.reload(state.activeTabId);
-      } catch (error) {
-        console.error('[Background] 重新加载标签页失败:', error);
+    // 合并所有处理结果
+    if (markdownDocs.length > 0) {
+      console.log('[Background] 保存处理结果，共', markdownDocs.length, '个项目');
+      const finalMarkdown = markdownDocs.join('\n\n---\n\n');
+      const combinedRawHtml = rawHtmlArray.join('\n\n<!-- 分隔符 -->\n\n');
+      
+      await chrome.storage.local.set({
+        finalMarkdown: finalMarkdown,
+        originalHtml: combinedRawHtml,
+        lastUpdateTime: Date.now(),
+        processedCount: markdownDocs.length // 新增：记录处理的项目数量
+      });
+      
+      // 检查是否已有预览页面，如果有则刷新，没有则创建
+      const tabs = await chrome.tabs.query({ url: chrome.runtime.getURL('src/display/display.html') });
+      if (tabs.length > 0) {
+        console.log('[Background] 刷新现有预览页面');
+        await chrome.tabs.reload(tabs[0].id, { bypassCache: true });
+        await chrome.tabs.update(tabs[0].id, { active: true });
+      } else {
+        console.log('[Background] 创建新的预览页面');
+        await chrome.tabs.create({ url: chrome.runtime.getURL('src/display/display.html') });
       }
     }
-    state.isSelectionActive = false;
-    state.activeTabId = null;
-    state.selectedLinks = [];
+
+    state.status = `任务完成！共处理 ${markdownDocs.length} 个项目。`;
     updatePopupState();
-    
+  } catch (error) {
+    console.error('[Background] 处理选中内容失败:', error);
+    state.status = '处理失败: ' + error.message;
+    updatePopupState();
   } finally {
     isProcessing = false;
   }
@@ -402,7 +493,8 @@ async function processUrlInOffscreen(arrayBuffer, contentType, url, config = {})
           chrome.runtime.onMessage.removeListener(listener);
           resolve({
             title: url,
-            markdown: message.markdown
+            markdown: message.markdown,
+            rawHtml: message.rawHtml
           });
         }
       };
@@ -413,7 +505,8 @@ async function processUrlInOffscreen(arrayBuffer, contentType, url, config = {})
         chrome.runtime.onMessage.removeListener(listener);
         resolve({
           title: '处理超时',
-          markdown: '内容处理超时，请重试'
+          markdown: '内容处理超时，请重试',
+          rawHtml: ''
         });
       }, 30000);
     });
@@ -421,7 +514,8 @@ async function processUrlInOffscreen(arrayBuffer, contentType, url, config = {})
     console.error('[Background] 处理URL失败:', error);
     return {
       title: '处理失败',
-      markdown: '处理失败: ' + error.message
+      markdown: '处理失败: ' + error.message,
+      rawHtml: ''
     };
   }
 }
@@ -477,8 +571,6 @@ async function setupOffscreenDocument(path) {
     });
   } catch (error) {
     console.error('[Background] 创建Offscreen文档失败:', error);
+    throw error;
   }
 }
-
-// 初始化时设置一些基本状态
-console.log('[Background] Service Worker 已启动'); 

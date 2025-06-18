@@ -1,9 +1,19 @@
-// 增强版内容选择脚本
-(() => {
-  if (window.isEnhancedSelectorInjected) {
+// 增强版内容选择器
+(function() {
+  'use strict';
+
+  // 添加防止重复注入的检查
+  if (window.enhancedSelectorInjected) {
+    console.log('[Content] 增强选择器已存在，跳过重复注入');
     return;
   }
-  window.isEnhancedSelectorInjected = true;
+  window.enhancedSelectorInjected = true;
+
+  // 添加本地状态管理
+  const localState = {
+    selectedLinks: [],
+    status: ''
+  };
 
   class EnhancedContentSelector {
     constructor() {
@@ -11,114 +21,122 @@
       this.currentMode = 'links';
       this.isAreaSelection = false;
       this.selectionStart = null;
-      this.config = null;
-      this.ui = null;
+      this.config = this.getDefaultConfig();
+      
+      // 绑定事件处理器，避免bind()问题
+      this.boundHandleLinkClick = this.handleLinkClick.bind(this);
+      this.boundHandleTextClick = this.handleTextClick.bind(this);
+      this.boundHandleElementClick = this.handleElementClick.bind(this);
+      this.boundHandleAreaStart = this.handleAreaStart.bind(this);
+      this.boundHandleAreaMove = this.handleAreaMove.bind(this);
+      this.boundHandleAreaEnd = this.handleAreaEnd.bind(this);
       
       this.init();
     }
 
     async init() {
-      // 获取配置
-      const result = await chrome.storage.local.get('extensionConfig');
-      this.config = result.extensionConfig || this.getDefaultConfig();
-      
-      // 创建UI
       this.createSelectionUI();
-      
-      // 设置默认模式
-      this.switchMode('links');
-      
-      // 监听消息
+      this.setupUIEvents();
       this.setupMessageListener();
+      this.addStyles();
+      // 初始化时设置链接选择模式
+      this.setupLinkSelection();
+      console.log('[Content] 增强内容选择器已初始化');
     }
 
     getDefaultConfig() {
       return {
+        contentProcessing: {
+          smartDecoding: true,
+          markdownCleaning: true,
+          preserveFormatting: true,
+          extractImages: true
+        },
+        performance: {
+          batchSize: 5,
+          timeout: 30,
+          retryAttempts: 3
+        },
         contentExtraction: {
           expandCollapsed: true,
           processLazyLoaded: true,
           removeNoise: true,
           extractHiddenContent: true
-        },
-        selectionModes: {
-          links: true,
-          text: true,
-          elements: true,
-          area: true
         }
       };
     }
 
     createSelectionUI() {
-      if (this.ui) {
-        this.ui.remove();
-      }
-
-      this.ui = document.createElement('div');
-      this.ui.id = 'enhanced-selection-ui';
-      this.ui.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #fff;
-        border: 2px solid #007bff;
-        border-radius: 8px;
-        padding: 15px;
-        z-index: 10000;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        min-width: 200px;
-        max-width: 300px;
-      `;
-
-      this.ui.innerHTML = `
-        <div style="margin-bottom: 15px;">
-          <div style="font-weight: bold; color: #007bff; margin-bottom: 8px;">选择模式</div>
-          <div style="display: flex; gap: 5px; margin-bottom: 10px; flex-wrap: wrap;">
-            <button id="mode-links" class="mode-btn active">链接</button>
-            <button id="mode-text" class="mode-btn">文本</button>
-            <button id="mode-elements" class="mode-btn">元素</button>
-            <button id="mode-area" class="mode-btn">区域</button>
+      const ui = document.createElement('div');
+      ui.id = 'enhanced-selection-ui';
+      ui.innerHTML = `
+        <div style="
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: white;
+          border: 2px solid #007bff;
+          border-radius: 8px;
+          padding: 15px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          z-index: 10000;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          min-width: 200px;
+        ">
+          <div style="margin-bottom: 10px; font-weight: bold; color: #007bff;">
+            内容选择器
+          </div>
+          
+          <div style="margin-bottom: 10px;">
+            <div style="margin-bottom: 5px; font-size: 12px; color: #666;">选择模式:</div>
+            <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+              <button id="mode-links" class="mode-btn active">链接</button>
+              <button id="mode-text" class="mode-btn">文本</button>
+              <button id="mode-elements" class="mode-btn">元素</button>
+              <button id="mode-area" class="mode-btn">区域</button>
+            </div>
+          </div>
+          
+          <div style="margin-bottom: 10px;">
+            <div style="font-size: 12px; color: #666;">
+              已选择: <span id="selection-info">0</span> 项
+            </div>
+          </div>
+          
+          <div style="display: flex; gap: 5px;">
+            <button id="process-selected" style="
+              background: #28a745;
+              color: white;
+              border: none;
+              padding: 6px 12px;
+              border-radius: 4px;
+              cursor: pointer;
+              font-size: 12px;
+            ">处理选中</button>
+            
+            <button id="clear-selection" style="
+              background: #6c757d;
+              color: white;
+              border: none;
+              padding: 6px 12px;
+              border-radius: 4px;
+              cursor: pointer;
+              font-size: 12px;
+            ">清空</button>
+            
+            <button id="exit-selection" style="
+              background: #dc3545;
+              color: white;
+              border: none;
+              padding: 6px 12px;
+              border-radius: 4px;
+              cursor: pointer;
+              font-size: 12px;
+            ">退出</button>
           </div>
         </div>
-        
-        <div style="margin-bottom: 15px;">
-          <div style="font-size: 12px; color: #666; margin-bottom: 5px;">已选择项目</div>
-          <div id="selection-info" style="font-size: 14px; font-weight: bold; color: #007bff;">0</div>
-        </div>
-        
-        <div style="display: flex; gap: 8px;">
-          <button id="process-selected" style="
-            flex: 1;
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 500;
-          ">处理选中</button>
-          <button id="clear-selection" style="
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 500;
-          ">清空</button>
-        </div>
-        
-        <div style="margin-top: 10px; font-size: 11px; color: #999; text-align: center;">
-          按 ESC 键退出选择模式
-        </div>
       `;
-
-      document.body.appendChild(this.ui);
-      this.setupUIEvents();
-      this.addStyles();
+      document.body.appendChild(ui);
     }
 
     setupUIEvents() {
@@ -138,6 +156,11 @@
       // 清空选择
       document.getElementById('clear-selection').addEventListener('click', () => {
         this.clearSelection();
+      });
+
+      // 退出选择模式
+      document.getElementById('exit-selection').addEventListener('click', () => {
+        this.exitSelectionMode();
       });
 
       // ESC键退出
@@ -180,31 +203,36 @@
       }
     }
 
+    removeAllEventListeners() {
+      // 使用绑定的函数引用
+      document.removeEventListener('click', this.boundHandleLinkClick, true);
+      document.removeEventListener('click', this.boundHandleTextClick, true);
+      document.removeEventListener('click', this.boundHandleElementClick, true);
+      document.removeEventListener('mousedown', this.boundHandleAreaStart);
+      document.removeEventListener('mousemove', this.boundHandleAreaMove);
+      document.removeEventListener('mouseup', this.boundHandleAreaEnd);
+    }
+
     setupLinkSelection() {
-      document.addEventListener('click', this.handleLinkClick.bind(this), true);
+      // 使用绑定的函数引用
+      document.addEventListener('click', this.boundHandleLinkClick, true);
     }
 
     setupTextSelection() {
-      document.addEventListener('click', this.handleTextClick.bind(this), true);
+      // 使用绑定的函数引用
+      document.addEventListener('click', this.boundHandleTextClick, true);
     }
 
     setupElementSelection() {
-      document.addEventListener('click', this.handleElementClick.bind(this), true);
+      // 使用绑定的函数引用
+      document.addEventListener('click', this.boundHandleElementClick, true);
     }
 
     setupAreaSelection() {
-      document.addEventListener('mousedown', this.handleAreaStart.bind(this));
-      document.addEventListener('mousemove', this.handleAreaMove.bind(this));
-      document.addEventListener('mouseup', this.handleAreaEnd.bind(this));
-    }
-
-    removeAllEventListeners() {
-      document.removeEventListener('click', this.handleLinkClick.bind(this), true);
-      document.removeEventListener('click', this.handleTextClick.bind(this), true);
-      document.removeEventListener('click', this.handleElementClick.bind(this), true);
-      document.removeEventListener('mousedown', this.handleAreaStart.bind(this));
-      document.removeEventListener('mousemove', this.handleAreaMove.bind(this));
-      document.removeEventListener('mouseup', this.handleAreaEnd.bind(this));
+      // 使用绑定的函数引用
+      document.addEventListener('mousedown', this.boundHandleAreaStart);
+      document.addEventListener('mousemove', this.boundHandleAreaMove);
+      document.addEventListener('mouseup', this.boundHandleAreaEnd);
     }
 
     handleLinkClick(event) {
@@ -351,6 +379,9 @@
     }
 
     async processSelectedContent() {
+      console.log('[Content] 开始处理选中内容，当前模式:', this.currentMode);
+      console.log('[Content] 选中元素数量:', this.selectedElements.size);
+      
       if (this.selectedElements.size === 0) {
         alert('请先选择要处理的内容');
         return;
@@ -358,7 +389,41 @@
 
       const contentData = [];
       
-      this.selectedElements.forEach(element => {
+      // 如果是链接模式，检查是否有多个链接
+      if (this.currentMode === 'links') {
+        const links = Array.from(this.selectedElements).filter(el => el.href);
+        console.log('[Content] 选中的链接数量:', links.length);
+        
+        if (links.length > 1) {
+          // 多个链接，使用批量处理
+          const urls = links.map(el => el.href);
+          console.log('[Content] 批量处理多个链接:', urls);
+          
+          // 发送批量处理消息
+          try {
+            console.log('[Content] 发送 PROCESS_LINKS_QUEUE 消息');
+            chrome.runtime.sendMessage({
+              type: 'PROCESS_LINKS_QUEUE',
+              urls: urls, // 新增：直接传递URL数组
+              config: this.config
+            }, (response) => {
+              if (chrome.runtime.lastError) {
+                console.error('[Content] 发送批量处理消息失败:', chrome.runtime.lastError);
+                alert('发送批量处理请求失败: ' + chrome.runtime.lastError.message);
+              } else {
+                console.log('[Content] 批量处理消息发送成功，响应:', response);
+              }
+            });
+          } catch (error) {
+            console.error('[Content] 发送批量处理消息异常:', error);
+            alert('发送批量处理请求异常: ' + error.message);
+          }
+          return;
+        }
+      }
+      
+      // 单个内容或多个非链接内容，使用原有逻辑
+      this.selectedElements.forEach((element, index) => {
         let content = '';
         let url = '';
         
@@ -383,7 +448,8 @@
             type: this.currentMode,
             content: content,
             url: url,
-            element: element.tagName.toLowerCase()
+            element: element.tagName.toLowerCase(),
+            index: index
           });
         }
       });
@@ -392,6 +458,7 @@
 
       // 发送到后台处理
       try {
+        console.log('[Content] 发送 PROCESS_SELECTED_CONTENT 消息');
         chrome.runtime.sendMessage({
           type: 'PROCESS_SELECTED_CONTENT',
           contentData: contentData,
@@ -401,7 +468,7 @@
             console.error('[Content] 发送消息失败:', chrome.runtime.lastError);
             alert('发送处理请求失败: ' + chrome.runtime.lastError.message);
           } else {
-            console.log('[Content] 消息发送成功');
+            console.log('[Content] 消息发送成功，响应:', response);
           }
         });
       } catch (error) {
@@ -504,6 +571,7 @@
   }
 
   // 初始化增强内容选择器
-  new EnhancedContentSelector();
+  window.enhancedSelector = new EnhancedContentSelector();
+  console.log('[Content] 增强内容选择器已挂载到 window.enhancedSelector');
 
-})(); 
+})();
