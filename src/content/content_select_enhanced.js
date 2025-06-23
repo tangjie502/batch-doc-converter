@@ -22,6 +22,7 @@
       this.isAreaSelection = false;
       this.selectionStart = null;
       this.config = this.getDefaultConfig();
+      this.pageKey = window.location.href;
       
       // 绑定事件处理器，避免bind()问题
       this.boundHandleLinkClick = this.handleLinkClick.bind(this);
@@ -39,7 +40,7 @@
       this.setupUIEvents();
       this.setupMessageListener();
       this.addStyles();
-      // 初始化时设置链接选择模式
+      await this.restoreSelectionFromStorage();
       this.setupLinkSelection();
       console.log('[Content] 增强内容选择器已初始化');
     }
@@ -190,6 +191,7 @@
       switch (mode) {
         case 'links':
           this.setupLinkSelection();
+          this.restoreSelectionFromStorage();
           break;
         case 'text':
           this.setupTextSelection();
@@ -236,29 +238,33 @@
     }
 
     handleLinkClick(event) {
+      // 禁止选择器UI自身被选中
+      if (event.target.closest('#enhanced-selection-ui')) return;
       const link = event.target.closest('a');
       if (!link) return;
-      
+      if (!(event.ctrlKey || event.metaKey)) {
+        return;
+      }
       event.preventDefault();
       event.stopPropagation();
-      
       this.toggleElementSelection(link);
     }
 
     handleTextClick(event) {
+      // 禁止选择器UI自身被选中
+      if (event.target.closest('#enhanced-selection-ui')) return;
       const textElement = event.target;
       if (textElement.tagName === 'A' || textElement.closest('a')) return;
-      
       event.preventDefault();
       event.stopPropagation();
-      
       this.toggleElementSelection(textElement);
     }
 
     handleElementClick(event) {
+      // 禁止选择器UI自身被选中
+      if (event.target.closest('#enhanced-selection-ui')) return;
       event.preventDefault();
       event.stopPropagation();
-      
       this.toggleElementSelection(event.target);
     }
 
@@ -361,6 +367,7 @@
         element.classList.add('enhanced-selected');
       }
       this.updateSelectionInfo();
+      this.saveSelectionToStorage();
     }
 
     clearSelection() {
@@ -369,6 +376,7 @@
       });
       this.selectedElements.clear();
       this.updateSelectionInfo();
+      this.saveSelectionToStorage();
     }
 
     updateSelectionInfo() {
@@ -567,6 +575,30 @@
         }
       `;
       document.head.appendChild(style);
+    }
+
+    async restoreSelectionFromStorage() {
+      if (this.currentMode !== 'links') return;
+      this.clearSelection();
+      const key = this.pageKey;
+      chrome.storage && chrome.storage.local.get([key], (result) => {
+        const hrefs = result[key] || [];
+        hrefs.forEach(href => {
+          const link = document.querySelector(`a[href='${href}']`);
+          if (link) {
+            this.selectedElements.add(link);
+            link.classList.add('enhanced-selected');
+          }
+        });
+        this.updateSelectionInfo();
+      });
+    }
+
+    saveSelectionToStorage() {
+      if (this.currentMode !== 'links') return;
+      const hrefs = Array.from(this.selectedElements).map(el => el.href);
+      const key = this.pageKey;
+      chrome.storage && chrome.storage.local.set({ [key]: hrefs });
     }
   }
 

@@ -10,6 +10,7 @@
       this.selectedElements = new Set();
       this.currentMode = 'links';
       this.ui = null;
+      this.pageKey = window.location.href;
       
       this.init();
     }
@@ -17,6 +18,7 @@
     init() {
       this.createSelectionUI();
       this.setupLinkSelection();
+      this.restoreSelectionFromStorage();
     }
 
     createSelectionUI() {
@@ -131,6 +133,7 @@
       // 根据模式设置事件监听器
       if (mode === 'links') {
         this.setupLinkSelection();
+        this.restoreSelectionFromStorage();
       } else if (mode === 'text') {
         this.setupTextSelection();
       }
@@ -145,22 +148,25 @@
     }
 
     handleLinkClick(event) {
+      // 禁止选择器UI自身被选中
+      if (event.target.closest('#simple-selection-ui')) return;
       const link = event.target.closest('a');
       if (!link) return;
-      
+      if (!(event.ctrlKey || event.metaKey)) {
+        return;
+      }
       event.preventDefault();
       event.stopPropagation();
-      
       this.toggleElementSelection(link);
     }
 
     handleTextClick(event) {
+      // 禁止选择器UI自身被选中
+      if (event.target.closest('#simple-selection-ui')) return;
       const textElement = event.target;
       if (textElement.tagName === 'A' || textElement.closest('a')) return;
-      
       event.preventDefault();
       event.stopPropagation();
-      
       this.toggleElementSelection(textElement);
     }
 
@@ -173,6 +179,7 @@
         element.classList.add('simple-selected');
       }
       this.updateSelectionInfo();
+      this.saveSelectionToStorage();
     }
 
     clearSelection() {
@@ -181,6 +188,7 @@
       });
       this.selectedElements.clear();
       this.updateSelectionInfo();
+      this.saveSelectionToStorage();
     }
 
     updateSelectionInfo() {
@@ -294,6 +302,30 @@
         }
       `;
       document.head.appendChild(style);
+    }
+
+    restoreSelectionFromStorage() {
+      if (this.currentMode !== 'links') return;
+      this.clearSelection();
+      const key = this.pageKey;
+      chrome.storage && chrome.storage.local.get([key], (result) => {
+        const hrefs = result[key] || [];
+        hrefs.forEach(href => {
+          const link = document.querySelector(`a[href='${href}']`);
+          if (link) {
+            this.selectedElements.add(link);
+            link.classList.add('simple-selected');
+          }
+        });
+        this.updateSelectionInfo();
+      });
+    }
+
+    saveSelectionToStorage() {
+      if (this.currentMode !== 'links') return;
+      const hrefs = Array.from(this.selectedElements).map(el => el.href);
+      const key = this.pageKey;
+      chrome.storage && chrome.storage.local.set({ [key]: hrefs });
     }
   }
 
