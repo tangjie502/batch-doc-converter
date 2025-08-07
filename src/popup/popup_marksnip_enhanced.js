@@ -332,30 +332,38 @@ class MarkSnipEnhancedPopup {
       return;
     }
 
+    console.log('[Popup] 开始批量处理URL:', urls);
+
     try {
       this.showProgress();
       this.updateProgress(0, urls.length, '开始批量处理...');
 
-      for (let i = 0; i < urls.length; i++) {
-        this.updateProgress(i + 1, urls.length, urls[i]);
-        
-        // 发送处理请求
-        await chrome.runtime.sendMessage({
-          type: 'PROCESS_URL',
-          url: urls[i],
-          config: this.options
-        });
-        
-        // 短暂延迟避免请求过快
-        await new Promise(resolve => setTimeout(resolve, 500));
+      // 发送批量处理请求 - 使用正确的消息类型
+      const response = await chrome.runtime.sendMessage({
+        type: 'PROCESS_LINKS_QUEUE',
+        urls: urls,
+        config: this.options
+      });
+
+      if (chrome.runtime.lastError) {
+        throw new Error(chrome.runtime.lastError.message);
       }
 
-      this.hideProgress();
-      this.showNotification(`成功处理 ${urls.length} 个URL`, 'success');
+      console.log('[Popup] 批量处理请求已发送，响应:', response);
+      this.showNotification(`已开始处理 ${urls.length} 个URL，请等待完成...`, 'success');
+      
+      // 更新进度到100%
+      this.updateProgress(urls.length, urls.length, '处理中，请稍候...');
+      
+      // 不立即隐藏进度条，让用户看到正在处理
+      setTimeout(() => {
+        this.hideProgress();
+      }, 2000);
+      
     } catch (error) {
       console.error('[Popup] 批量转换失败:', error);
       this.hideProgress();
-      this.showNotification('批量转换失败', 'error');
+      this.showNotification('批量转换失败: ' + error.message, 'error');
     }
   }
 
