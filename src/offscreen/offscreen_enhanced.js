@@ -123,42 +123,48 @@ function initTurndownService() {
   }
 }
 
-// 使用 Readability 提取主要内容
-function extractReadableContent(htmlContent, url) {
-  console.log('[Offscreen] 使用 Readability 提取内容');
+// 使用Readability提取可读内容（增强版）
+function extractReadableContent(htmlContent, url, config = {}) {
+  console.log('[Offscreen] 开始智能内容提取');
   
   try {
-    // 创建 DOM 解析器
+    // 创建虚拟DOM
     const doc = new DOMParser().parseFromString(htmlContent, 'text/html');
+    
+    // 预处理HTML内容
+    if (config.contentExtraction) {
+      preprocessHtmlContent(doc, config.contentExtraction);
+    }
     
     // 使用 Readability 提取内容
     const article = new Readability(doc, {
       debug: false,
-      charThreshold: 500, // 最小字符数
+      charThreshold: config.contentExtraction?.smartDecoding ? 300 : 500,
       classesToPreserve: ['highlight', 'code', 'language-'] // 保留代码相关类
     }).parse();
     
     if (article && article.content) {
-      console.log('[Offscreen] Readability 提取成功，标题:', article.title);
+      console.log('[Offscreen] Readability提取成功');
+      
+      // 后处理提取的内容
+      let processedContent = article.content;
+      if (config.contentExtraction) {
+        processedContent = postprocessExtractedContent(article.content, config.contentExtraction);
+      }
+      
       return {
-        title: article.title || '未知标题',
-        content: article.content,
-        textContent: article.textContent,
-        length: article.length,
-        excerpt: article.excerpt
+        title: article.title || extractTitleFromDoc(doc) || '未知标题',
+        content: processedContent,
+        textContent: article.textContent || '',
+        length: article.length || 0,
+        excerpt: article.excerpt || extractExcerpt(processedContent)
       };
     } else {
-      console.warn('[Offscreen] Readability 提取失败，使用原始内容');
-      return {
-        title: '未知标题', 
-        content: htmlContent,
-        textContent: '',
-        length: 0,
-        excerpt: ''
-      };
+      console.warn('[Offscreen] Readability 不可用，使用备用提取方式');
+      return fallbackExtraction(doc, config);
     }
   } catch (error) {
-    console.error('[Offscreen] Readability 处理失败:', error);
+    console.error('[Offscreen] 智能内容提取失败:', error);
     return {
       title: '提取失败',
       content: htmlContent,
@@ -167,6 +173,205 @@ function extractReadableContent(htmlContent, url) {
       excerpt: ''
     };
   }
+}
+
+// 预处理HTML内容
+function preprocessHtmlContent(doc, config) {
+  console.log('[Offscreen] 预处理HTML内容');
+  
+  // 展开折叠的内容
+  if (config.expandCollapsed) {
+    expandCollapsedElements(doc);
+  }
+  
+  // 处理懒加载内容
+  if (config.processLazyLoaded) {
+    processLazyLoadedContent(doc);
+  }
+  
+  // 移除噪音内容
+  if (config.removeNoise) {
+    removeNoiseElements(doc);
+  }
+  
+  // 提取隐藏内容
+  if (config.extractHiddenContent) {
+    extractHiddenElements(doc);
+  }
+}
+
+// 展开折叠元素
+function expandCollapsedElements(doc) {
+  // 查找并展开 details/summary 元素
+  const details = doc.querySelectorAll('details');
+  details.forEach(detail => {
+    detail.setAttribute('open', '');
+  });
+  
+  // 展开具有 data-collapsed 或 collapsed 类的元素
+  const collapsed = doc.querySelectorAll('[data-collapsed], .collapsed, .collapse');
+  collapsed.forEach(el => {
+    el.removeAttribute('data-collapsed');
+    el.classList.remove('collapsed', 'collapse');
+    el.style.display = '';
+    el.style.visibility = '';
+    el.style.height = '';
+  });
+}
+
+// 处理懒加载内容
+function processLazyLoadedContent(doc) {
+  // 处理懒加载图片
+  const lazyImages = doc.querySelectorAll('img[data-src], img[data-lazy-src]');
+  lazyImages.forEach(img => {
+    const src = img.getAttribute('data-src') || img.getAttribute('data-lazy-src');
+    if (src) {
+      img.setAttribute('src', src);
+    }
+  });
+  
+  // 处理懒加载内容容器
+  const lazyContainers = doc.querySelectorAll('[data-lazy], [data-lazy-load]');
+  lazyContainers.forEach(container => {
+    container.style.display = '';
+    container.removeAttribute('data-lazy');
+    container.removeAttribute('data-lazy-load');
+  });
+}
+
+// 移除噪音元素
+function removeNoiseElements(doc) {
+  const noiseSelectors = [
+    'script', 'style', 'noscript',
+    '.advertisement', '.ads', '.ad',
+    '.social-share', '.social-media',
+    '.newsletter', '.subscription',
+    '.popup', '.modal', '.overlay',
+    '.sidebar', '.widget',
+    '.comment-section', '.comments',
+    '.related-articles', '.recommended',
+    '[class*="cookie"]', '[id*="cookie"]',
+    '[class*="gdpr"]', '[id*="gdpr"]'
+  ];
+  
+  noiseSelectors.forEach(selector => {
+    try {
+      const elements = doc.querySelectorAll(selector);
+      elements.forEach(el => el.remove());
+    } catch (error) {
+      console.warn('[Offscreen] 移除噪音元素失败:', selector, error);
+    }
+  });
+}
+
+// 提取隐藏内容
+function extractHiddenElements(doc) {
+  const hiddenElements = doc.querySelectorAll('[style*="display:none"], [style*="visibility:hidden"]');
+  hiddenElements.forEach(el => {
+    // 只显示可能包含有用内容的元素
+    if (el.textContent.trim().length > 20) {
+      el.style.display = '';
+      el.style.visibility = '';
+    }
+  });
+}
+
+// 后处理提取的内容
+function postprocessExtractedContent(content, config) {
+  if (!config.preserveFormatting) {
+    // 移除额外的格式化元素
+    const tempDoc = new DOMParser().parseFromString(content, 'text/html');
+    const formatElements = tempDoc.querySelectorAll('font, center, u, strike');
+    formatElements.forEach(el => {
+      el.outerHTML = el.innerHTML;
+    });
+    content = tempDoc.body.innerHTML;
+  }
+  
+  return content;
+}
+
+// 从文档中提取标题
+function extractTitleFromDoc(doc) {
+  // 尝试多种方式提取标题
+  const titleSelectors = [
+    'title',
+    'h1',
+    '[property="og:title"]',
+    '[name="twitter:title"]',
+    '.title', '.post-title', '.article-title'
+  ];
+  
+  for (const selector of titleSelectors) {
+    try {
+      const element = doc.querySelector(selector);
+      if (element) {
+        const title = element.getAttribute('content') || element.textContent;
+        if (title && title.trim().length > 0) {
+          return title.trim();
+        }
+      }
+    } catch (error) {
+      continue;
+    }
+  }
+  
+  return null;
+}
+
+// 提取摘要
+function extractExcerpt(content, maxLength = 200) {
+  if (!content) return '';
+  
+  const tempDoc = new DOMParser().parseFromString(content, 'text/html');
+  const text = tempDoc.body.textContent || '';
+  
+  if (text.length <= maxLength) {
+    return text.trim();
+  }
+  
+  // 在单词边界截断
+  const truncated = text.substring(0, maxLength);
+  const lastSpace = truncated.lastIndexOf(' ');
+  return (lastSpace > 0 ? truncated.substring(0, lastSpace) : truncated) + '...';
+}
+
+// 备用提取方式
+function fallbackExtraction(doc, config) {
+  console.log('[Offscreen] 使用备用内容提取方式');
+  
+  // 尝试提取主要内容区域
+  const contentSelectors = [
+    'main', 'article', '.content', '.post', '.entry',
+    '#content', '#main', '#article', '#post'
+  ];
+  
+  let content = '';
+  let title = extractTitleFromDoc(doc) || '未知标题';
+  
+  for (const selector of contentSelectors) {
+    try {
+      const element = doc.querySelector(selector);
+      if (element && element.textContent.trim().length > 100) {
+        content = element.innerHTML;
+        break;
+      }
+    } catch (error) {
+      continue;
+    }
+  }
+  
+  if (!content) {
+    content = doc.body.innerHTML;
+  }
+  
+  return {
+    title: title,
+    content: content,
+    textContent: doc.body.textContent || '',
+    length: content.length,
+    excerpt: extractExcerpt(content)
+  };
 }
 
 // 处理代码块语言检测
@@ -255,7 +460,7 @@ function processImages(markdown, url) {
 }
 
 // 处理HTML内容转换为Markdown
-function processHtmlContent(htmlContent, url = '') {
+function processHtmlContent(htmlContent, url = '', config = {}) {
   console.log('[Offscreen] 处理HTML内容');
   
   if (!turndownService) {
@@ -264,7 +469,7 @@ function processHtmlContent(htmlContent, url = '') {
   
   try {
     // 首先使用 Readability 提取主要内容
-    const extracted = extractReadableContent(htmlContent, url);
+    const extracted = extractReadableContent(htmlContent, url, config);
     
     // 使用Turndown转换HTML为Markdown
     let markdown = turndownService.turndown(extracted.content);
@@ -280,6 +485,12 @@ function processHtmlContent(htmlContent, url = '') {
     // 处理图片
     const imageResult = processImages(markdown, url);
     markdown = imageResult.markdown;
+    
+    // 表格格式化处理
+    markdown = formatTables(markdown, config);
+    
+    // 中文优化处理
+    markdown = optimizeChineseContent(markdown, config);
     
     // 添加元数据
     const metadata = {
@@ -306,8 +517,247 @@ function processHtmlContent(htmlContent, url = '') {
   }
 }
 
+// 中文优化处理函数
+function optimizeChineseContent(markdown, config = {}) {
+  console.log('[Offscreen] 开始中文优化处理');
+  
+  if (!config.chineseOptimization) {
+    return markdown;
+  }
+  
+  try {
+    let optimized = markdown;
+    
+    // 1. 标点符号转换
+    if (config.chineseOptimization.convertPunctuation) {
+      optimized = convertPunctuation(optimized);
+    }
+    
+    // 2. 中英文间距修复
+    if (config.chineseOptimization.fixSpacing) {
+      optimized = fixChineseEnglishSpacing(optimized);
+    }
+    
+    // 3. 换行优化
+    if (config.chineseOptimization.optimizeLineBreaks) {
+      optimized = optimizeLineBreaks(optimized);
+    }
+    
+    console.log('[Offscreen] 中文优化处理完成');
+    return optimized;
+  } catch (error) {
+    console.error('[Offscreen] 中文优化处理失败:', error);
+    return markdown;
+  }
+}
+
+// 标点符号转换
+function convertPunctuation(text) {
+  const punctuationMap = {
+    // 全角转半角
+    '，': ',',
+    '。': '.',
+    '？': '?',
+    '！': '!',
+    '；': ';',
+    '：': ':',
+    '（': '(',
+    '）': ')',
+    '［': '[',
+    '］': ']',
+    '｛': '{',
+    '｝': '}',
+    '｜': '|',
+    '＋': '+',
+    '－': '-',
+    '＊': '*',
+    '／': '/',
+    '＝': '=',
+    '＜': '<',
+    '＞': '>',
+    '％': '%',
+    '＠': '@',
+    '＃': '#',
+    '＄': '$',
+    '＾': '^',
+    '＆': '&',
+    '～': '~'
+  };
+  
+  // 中文引号特殊处理 - 保持中文引号用于中文内容
+  return text.replace(/[，。？！；：（）［］｛｝｜＋－＊／＝＜＞％＠＃＄＾＆～]/g, (match) => {
+    return punctuationMap[match] || match;
+  });
+}
+
+// 中英文间距修复
+function fixChineseEnglishSpacing(text) {
+  // 中文字符正则
+  const chineseChar = '[\u4e00-\u9fff\u3400-\u4dbf\u20000-\u2a6df\u2a700-\u2b73f\u2b740-\u2b81f\u2b820-\u2ceaf]';
+  // 英文字符和数字正则
+  const englishChar = '[a-zA-Z0-9]';
+  
+  return text
+    // 中文后面跟英文/数字，添加空格
+    .replace(new RegExp(`(${chineseChar})([a-zA-Z0-9])`, 'g'), '$1 $2')
+    // 英文/数字后面跟中文，添加空格
+    .replace(new RegExp(`([a-zA-Z0-9])(${chineseChar})`, 'g'), '$1 $2')
+    // 中文后面跟英文标点，添加空格
+    .replace(new RegExp(`(${chineseChar})([.,!?;:])`, 'g'), '$1 $2')
+    // 清理多余的连续空格
+    .replace(/\s{2,}/g, ' ')
+    // 清理行首行尾的空格
+    .replace(/^\s+|\s+$/gm, '');
+}
+
+// 换行优化
+function optimizeLineBreaks(text) {
+  return text
+    // 移除多余的空行（保留最多一个空行）
+    .replace(/\n{3,}/g, '\n\n')
+    // 优化列表项之间的换行
+    .replace(/^(\s*[-*+]\s+.+)\n\n(\s*[-*+]\s+)/gm, '$1\n$2')
+    // 优化有序列表项之间的换行
+    .replace(/^(\s*\d+\.\s+.+)\n\n(\s*\d+\.\s+)/gm, '$1\n$2')
+    // 标题前确保有空行
+    .replace(/\n(#{1,6}\s+)/g, '\n\n$1')
+    // 代码块前后确保有空行
+    .replace(/\n(```)/g, '\n\n$1')
+    .replace(/(```)\n/g, '$1\n\n')
+    // 清理文档开头的多余换行
+    .replace(/^\n+/, '')
+    // 清理文档结尾的多余换行
+    .replace(/\n+$/, '\n');
+}
+
+// 表格格式化处理函数
+function formatTables(markdown, config = {}) {
+  console.log('[Offscreen] 开始表格格式化处理');
+  
+  if (!config.tableFormatting || !config.tableFormatting.prettyPrint) {
+    return markdown;
+  }
+  
+  try {
+    // 查找所有表格
+    const tableRegex = /(\|[^\n]+\|\n)+(\|[\s\-:]*\|\n)(\|[^\n]+\|\n)+/g;
+    
+    return markdown.replace(tableRegex, (match) => {
+      return prettifyTable(match, config.tableFormatting);
+    });
+  } catch (error) {
+    console.error('[Offscreen] 表格格式化失败:', error);
+    return markdown;
+  }
+}
+
+// 美化单个表格
+function prettifyTable(tableText, config) {
+  const lines = tableText.trim().split('\n');
+  if (lines.length < 3) return tableText; // 至少需要头部、分隔线、数据行
+  
+  // 解析表格行
+  const rows = lines.map(line => {
+    return line.split('|').slice(1, -1).map(cell => cell.trim());
+  });
+  
+  if (rows.length === 0) return tableText;
+  
+  // 计算每列的最大宽度
+  const colCount = Math.max(...rows.map(row => row.length));
+  const colWidths = [];
+  
+  for (let col = 0; col < colCount; col++) {
+    let maxWidth = 0;
+    for (let row = 0; row < rows.length; row++) {
+      if (rows[row][col]) {
+        const cellContent = config.stripLinks ? 
+          stripLinksFromCell(rows[row][col]) : 
+          rows[row][col];
+        maxWidth = Math.max(maxWidth, cellContent.length);
+      }
+    }
+    colWidths[col] = Math.max(maxWidth, 3); // 最小宽度为3
+  }
+  
+  // 格式化表格
+  const formattedRows = [];
+  
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const formattedCells = [];
+    
+    for (let j = 0; j < colCount; j++) {
+      let cell = row[j] || '';
+      
+      // 处理链接
+      if (config.stripLinks) {
+        cell = stripLinksFromCell(cell);
+      }
+      
+      // 处理格式
+      if (config.stripFormatting) {
+        cell = stripFormattingFromCell(cell);
+      }
+      
+      // 对齐文本
+      if (config.alignColumns) {
+        if (i === 1) { // 分隔行
+          cell = createSeparatorCell(colWidths[j], config.centerText);
+        } else {
+          cell = padCell(cell, colWidths[j], config.centerText);
+        }
+      }
+      
+      formattedCells.push(cell);
+    }
+    
+    formattedRows.push('| ' + formattedCells.join(' | ') + ' |');
+  }
+  
+  return formattedRows.join('\n') + '\n';
+}
+
+// 移除单元格中的链接
+function stripLinksFromCell(cell) {
+  // 移除Markdown链接，保留链接文本
+  return cell.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+             .replace(/\[([^\]]+)\]\[[^\]]*\]/g, '$1');
+}
+
+// 移除单元格中的格式
+function stripFormattingFromCell(cell) {
+  return cell.replace(/\*\*([^*]+)\*\*/g, '$1')  // 粗体
+             .replace(/\*([^*]+)\*/g, '$1')       // 斜体
+             .replace(/`([^`]+)`/g, '$1')         // 行内代码
+             .replace(/~~([^~]+)~~/g, '$1');      // 删除线
+}
+
+// 填充单元格内容
+function padCell(content, width, center = false) {
+  if (content.length >= width) return content;
+  
+  const padding = width - content.length;
+  if (center) {
+    const leftPad = Math.floor(padding / 2);
+    const rightPad = padding - leftPad;
+    return ' '.repeat(leftPad) + content + ' '.repeat(rightPad);
+  } else {
+    return content + ' '.repeat(padding);
+  }
+}
+
+// 创建分隔行单元格
+function createSeparatorCell(width, center = false) {
+  if (center) {
+    return ':' + '-'.repeat(Math.max(width - 2, 1)) + ':';
+  } else {
+    return '-'.repeat(width);
+  }
+}
+
 // 处理原始HTML数据
-function processRawHtml(arrayBuffer, contentType, url) {
+function processRawHtml(arrayBuffer, contentType, url, config = {}) {
   console.log('[Offscreen] 处理原始HTML:', url);
   
   try {
@@ -316,7 +766,7 @@ function processRawHtml(arrayBuffer, contentType, url) {
     const htmlContent = decoder.decode(arrayBuffer);
     
     // 处理HTML内容
-    const result = processHtmlContent(htmlContent, url);
+    const result = processHtmlContent(htmlContent, url, config);
     
     console.log('[Offscreen] 原始HTML处理完成');
     return result;
@@ -342,7 +792,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     switch (message.type) {
       case 'process-html-content':
         console.log('[Offscreen] 处理HTML内容消息');
-        const result = processHtmlContent(message.htmlContent, message.url);
+        const result = processHtmlContent(message.htmlContent, message.url, message.config);
         
         // 发送结果回background
         chrome.runtime.sendMessage({
@@ -359,7 +809,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const rawResult = processRawHtml(
           new Uint8Array(message.arrayBuffer), 
           message.contentType, 
-          message.url
+          message.url,
+          message.config
         );
         
         // 发送结果回background
