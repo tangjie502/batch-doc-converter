@@ -3,6 +3,7 @@ const toggleBtn = document.getElementById('toggle-selection-btn');
 const processBtn = document.getElementById('process-btn');
 const linkCountSpan = document.getElementById('link-count');
 const statusMessage = document.getElementById('status-message');
+const closeBtn = document.getElementById('close-popup-btn');
 
 // 更新UI的函数
 function updateUI(state) {
@@ -32,7 +33,12 @@ function updateUI(state) {
 
 // ---- 事件监听器 ----
 
-// 1. 监听“开始/停止选择”按钮的点击
+// 0. 监听关闭按钮的点击
+closeBtn.addEventListener('click', () => {
+  window.close();
+});
+
+// 1. 监听"开始/停止选择"按钮的点击
 toggleBtn.addEventListener('click', () => {
   // 发送消息给 background.js，请求切换选择模式
   chrome.runtime.sendMessage({ type: 'TOGGLE_SELECTION_MODE' });

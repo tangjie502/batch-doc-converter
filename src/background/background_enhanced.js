@@ -1,6 +1,12 @@
 // 增强版后台脚本
 // 在现有的 background.js 基础上添加新功能
 
+// 导入共享模块
+importScripts(
+  '../shared/default-options.js',
+  '../shared/context-menus.js'
+);
+
 // 全局状态
 let state = {
   isSelectionActive: false,
@@ -13,6 +19,43 @@ const OFFSCREEN_DOCUMENT_PATH = '/src/offscreen/offscreen_enhanced.html';
 
 // 添加处理状态跟踪
 let isProcessing = false;
+
+// 初始化上下文菜单
+chrome.runtime.onStartup.addListener(() => {
+  contextMenuManager.createMenus();
+});
+
+chrome.runtime.onInstalled.addListener(() => {
+  contextMenuManager.createMenus();
+});
+
+// 监听右键菜单点击
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  contextMenuManager.handleMenuClick(info, tab);
+});
+
+// 监听快捷键命令
+chrome.commands.onCommand.addListener(async (command) => {
+  console.log('[Background] 收到快捷键命令:', command);
+  
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    
+    switch (command) {
+      case 'download_tab_as_markdown':
+        await processCurrentTab(tab, 'download');
+        break;
+      case 'copy_tab_as_markdown':
+        await processCurrentTab(tab, 'copy');
+        break;
+      case 'copy_selection_as_markdown':
+        await processSelection(tab);
+        break;
+    }
+  } catch (error) {
+    console.error('[Background] 处理快捷键命令失败:', error);
+  }
+});
 
 // 在现有的消息监听器中添加新的处理
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -73,6 +116,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       case 'PROCESSING_ERROR':
         handleProcessingError(message);
         break;
+      case 'START_SELECTION_MODE':
+        handleStartSelectionMode(message, sender);
+        sendResponse({ success: true });
+        break;
+      case 'EXIT_SELECTION_MODE':
+        handleExitSelectionMode(message, sender);
+        sendResponse({ success: true });
+        break;
+      case 'SWITCH_SELECTION_MODE':
+        handleSwitchSelectionMode(message, sender);
+        sendResponse({ success: true });
+        break;
+      case 'CLEAR_SELECTION':
+        handleClearSelection(message, sender);
+        sendResponse({ success: true });
+        break;
+      case 'SELECTION_UPDATED':
+        handleSelectionUpdated(message, sender);
+        break;
       case 'html-process-result':
         handleHtmlProcessResult(message);
         break;
@@ -128,13 +190,14 @@ async function toggleSelectionMode(config = null) {
     state.isSelectionActive = false;
     state.activeTabId = null;
     state.selectedLinks = [];
-    state.status = "";
+    state.status = "就绪";
   } else {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab) {
         state.isSelectionActive = true;
         state.activeTabId = tab.id;
+        state.status = "选择模式已激活";
         
         // 先注入CSS
         try {
@@ -154,6 +217,20 @@ async function toggleSelectionMode(config = null) {
             files: ['src/content/content_select_enhanced.js'] 
           });
           console.log('[Background] 脚本注入成功');
+          
+          // 等待脚本初始化完成后再发送启动消息
+          setTimeout(async () => {
+            try {
+              await chrome.tabs.sendMessage(tab.id, {
+                type: 'START_SELECTION_MODE',
+                config: config || {}
+              });
+              console.log('[Background] 发送启动选择模式消息成功');
+            } catch (error) {
+              console.error('[Background] 发送启动选择模式消息失败:', error);
+            }
+          }, 100);
+          
         } catch (error) {
           console.error('[Background] 注入脚本失败:', error);
           throw error;
@@ -552,6 +629,120 @@ function updatePopupState() {
   chrome.runtime.sendMessage({ type: 'STATE_UPDATE', state: state }).catch(err => {
     console.error('[Background] 发送状态更新失败:', err);
   });
+}
+
+// 处理启动选择模式
+async function handleStartSelectionMode(message, sender) {
+  console.log('[Background] 启动选择模式');
+  console.log('[Background] sender信息:', sender);
+  
+  try {
+    // 获取当前活动的标签页（因为消息可能来自弹窗）
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    
+    if (!activeTab) {
+      throw new Error('无法获取当前活动标签页');
+    }
+    
+    console.log('[Background] 当前活动标签页:', activeTab.id, activeTab.url);
+    
+    // 更新状态
+    state.isSelectionActive = true;
+    state.activeTabId = activeTab.id;
+    state.status = '选择模式已激活';
+    
+    // 发送启动消息给内容脚本
+    console.log('[Background] 发送启动消息给标签页:', activeTab.id);
+    await chrome.tabs.sendMessage(activeTab.id, {
+      type: 'START_SELECTION_MODE',
+      config: message.config
+    });
+    
+    console.log('[Background] 启动选择模式成功');
+    updatePopupState();
+    
+  } catch (error) {
+    console.error('[Background] 启动选择模式失败:', error);
+    state.status = '启动选择模式失败: ' + error.message;
+    updatePopupState();
+  }
+}
+
+// 处理退出选择模式
+async function handleExitSelectionMode(message, sender) {
+  console.log('[Background] 退出选择模式');
+  
+  try {
+    // 发送退出消息给内容脚本
+    if (state.activeTabId) {
+      await chrome.tabs.sendMessage(state.activeTabId, {
+        type: 'EXIT_SELECTION_MODE'
+      });
+    }
+    
+    // 更新状态
+    state.isSelectionActive = false;
+    state.activeTabId = null;
+    state.status = '就绪';
+    
+    updatePopupState();
+    
+  } catch (error) {
+    console.error('[Background] 退出选择模式失败:', error);
+  }
+}
+
+// 处理切换选择模式  
+async function handleSwitchSelectionMode(message, sender) {
+  console.log('[Background] 切换选择模式:', message.mode);
+  
+  try {
+    if (state.activeTabId) {
+      await chrome.tabs.sendMessage(state.activeTabId, {
+        type: 'SWITCH_SELECTION_MODE',
+        mode: message.mode
+      });
+    }
+  } catch (error) {
+    console.error('[Background] 切换选择模式失败:', error);
+  }
+}
+
+// 处理清空选择
+async function handleClearSelection(message, sender) {
+  console.log('[Background] 清空选择');
+  
+  try {
+    if (state.activeTabId) {
+      await chrome.tabs.sendMessage(state.activeTabId, {
+        type: 'CLEAR_SELECTION'
+      });
+    }
+    
+    // 清空本地状态
+    state.selectedLinks = [];
+    updatePopupState();
+    
+  } catch (error) {
+    console.error('[Background] 清空选择失败:', error);
+  }
+}
+
+// 处理选择更新
+function handleSelectionUpdated(message, sender) {
+  console.log('[Background] 选择已更新:', message);
+  
+  // 更新状态
+  state.isSelectionActive = message.isActive;
+  state.selectedLinks = message.selectedLinks || [];
+  
+  if (message.count !== undefined) {
+    state.status = message.isActive 
+      ? `选择模式 (${message.mode || '链接'}) - 已选择 ${message.count} 项`
+      : '就绪';
+  }
+  
+  updatePopupState();
 }
 
 // Offscreen 文档管理函数

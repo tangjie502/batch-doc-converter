@@ -7,7 +7,10 @@
     "storage",
     "activeTab",
     "scripting",
-    "offscreen"
+    "offscreen",
+    "downloads",
+    "contextMenus",
+    "clipboardWrite"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -15,8 +18,38 @@
   "background": {
     "service_worker": "src/background/background_enhanced.js"
   },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/content_select_optimized.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+M"
+      }
+    },
+    "download_tab_as_markdown": {
+      "suggested_key": {
+        "default": "Alt+Shift+D"
+      },
+      "description": "下载当前标签页为Markdown"
+    },
+    "copy_tab_as_markdown": {
+      "suggested_key": {
+        "default": "Alt+Shift+C"
+      },
+      "description": "复制当前标签页为Markdown到剪贴板"
+    },
+    "copy_selection_as_markdown": {
+      "description": "复制选中内容为Markdown到剪贴板"
+    }
+  },
   "action": {
-    "default_popup": "src/popup/popup_enhanced.html",
+    "default_popup": "src/popup/popup_marksnip_enhanced.html",
     "default_icon": {
       "16": "assets/icons/icon16.png",
       "48": "assets/icons/icon48.png",

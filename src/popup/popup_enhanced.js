@@ -15,6 +15,11 @@ class EnhancedPopup {
   }
 
   setupEventListeners() {
+    // 关闭弹窗按钮
+    document.getElementById('close-popup-btn').addEventListener('click', () => {
+      this.closePopup();
+    });
+
     // 标签页切换
     document.querySelectorAll('.tab').forEach(tab => {
       tab.addEventListener('click', (e) => {
@@ -401,6 +406,15 @@ class EnhancedPopup {
       document.getElementById('process-btn').disabled = false;
       document.getElementById('toggle-selection-btn').disabled = false;
     }
+  }
+
+  // 关闭弹窗
+  closePopup() {
+    // 保存当前状态到存储
+    this.saveConfig();
+    
+    // 关闭弹窗
+    window.close();
   }
 }
 

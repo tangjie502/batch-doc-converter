@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>链接选择测试页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            transition: background-color 0.3s ease;
+        }
+        
+        body.modifier-pressed {
+            background-color: #f0f8ff !important;
+            cursor: crosshair !important;
+        }
+        .test-section {
+            background: #f8f9fa;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+        a {
+            color: #007bff;
+            text-decoration: none;
+            padding: 5px 10px;
+            margin: 5px;
+            display: inline-block;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            transition: all 0.3s ease;
+        }
+        a:hover {
+            background: #e9ecef;
+            transform: translateY(-1px);
+        }
+        .instructions {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #ffc107;
+            margin-bottom: 20px;
+        }
+        .test-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        h2 {
+            color: #495057;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔗 批量文档转换器 - 链接选择测试页面</h1>
+    
+    <div class="instructions">
+        <strong>📋 测试说明：</strong>
+        <ol>
+            <li>点击浏览器扩展图标打开弹窗</li>
+            <li>点击"开始选择链接"按钮</li>
+            <li>页面右下角应该出现蓝色状态指示器，显示操作提示</li>
+            <li><strong>🎯 核心操作：</strong>
+                <ul style="margin-top: 5px;">
+                    <li><strong>Command + 点击</strong>（Mac）或 <strong>Ctrl + 点击</strong>（Windows）= 选择链接（绿色边框）</li>
+                    <li><strong>普通点击</strong> = 正常打开链接（方便在新页面继续选择）</li>
+                </ul>
+            </li>
+            <li>按ESC键可以退出选择模式</li>
+            <li>选择完成后，点击弹窗中的"处理中队内容"按钮进行批量转换</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>🌐 测试链接组 1 - 新闻网站</h2>
+        <div class="test-links">
+            <a href="https://www.baidu.com">百度首页</a>
+            <a href="https://news.sina.com.cn">新浪新闻</a>
+            <a href="https://www.163.com">网易首页</a>
+            <a href="https://www.qq.com">腾讯首页</a>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>📚 测试链接组 2 - 技术文档</h2>
+        <div class="test-links">
+            <a href="https://developer.mozilla.org/zh-CN/">MDN Web文档</a>
+            <a href="https://www.w3school.com.cn">W3School</a>
+            <a href="https://github.com">GitHub</a>
+            <a href="https://stackoverflow.com">Stack Overflow</a>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🛍️ 测试链接组 3 - 电商网站</h2>
+        <div class="test-links">
+            <a href="https://www.taobao.com">淘宝网</a>
+            <a href="https://www.jd.com">京东商城</a>
+            <a href="https://www.tmall.com">天猫</a>
+            <a href="https://www.amazon.cn">亚马逊中国</a>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>📖 测试链接组 4 - 内容平台</h2>
+        <div class="test-links">
+            <a href="https://www.zhihu.com">知乎</a>
+            <a href="https://juejin.cn">掘金</a>
+            <a href="https://www.csdn.net">CSDN</a>
+            <a href="https://segmentfault.com">SegmentFault</a>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🎯 特殊测试链接</h2>
+        <div class="test-links">
+            <a href="javascript:void(0)">JavaScript链接</a>
+            <a href="#section1">页面锚点</a>
+            <a href="mailto:test@example.com">邮件链接</a>
+            <a href="tel:+86-123-4567-8901">电话链接</a>
+        </div>
+    </div>
+
+    <script>
+        console.log('测试页面已加载');
+        console.log('页面包含链接数量:', document.querySelectorAll('a').length);
+        console.log('当前平台:', navigator.platform);
+        
+        // 添加一些测试用的事件监听器来验证修饰键检测
+        document.addEventListener('click', function(e) {
+            if (e.target.tagName === 'A') {
+                console.log('页面原生点击事件被触发:', {
+                    url: e.target.href,
+                    metaKey: e.metaKey,
+                    ctrlKey: e.ctrlKey,
+                    shiftKey: e.shiftKey,
+                    altKey: e.altKey,
+                    modifierPressed: e.metaKey || e.ctrlKey
+                });
+            }
+        }, true);
+
+        // 修饰键状态跟踪
+        let modifierPressed = false;
+        
+        // 添加键盘事件监听器 - 使用更低级的事件监听
+        document.addEventListener('keydown', function(e) {
+            if ((e.metaKey || e.ctrlKey) && !modifierPressed) {
+                modifierPressed = true;
+                console.log('🔑 修饰键被按下:', e.metaKey ? 'Command' : 'Ctrl');
+                document.body.classList.add('modifier-pressed');
+                
+                // 创建状态提示
+                let statusDiv = document.getElementById('modifier-status');
+                if (!statusDiv) {
+                    statusDiv = document.createElement('div');
+                    statusDiv.id = 'modifier-status';
+                    statusDiv.style.cssText = `
+                        position: fixed;
+                        top: 20px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        background: #28a745;
+                        color: white;
+                        padding: 8px 16px;
+                        border-radius: 20px;
+                        font-size: 12px;
+                        font-weight: bold;
+                        z-index: 10001;
+                        pointer-events: none;
+                    `;
+                    document.body.appendChild(statusDiv);
+                }
+                statusDiv.textContent = `${e.metaKey ? 'Command' : 'Ctrl'} 键已按下 - 选择模式激活`;
+                statusDiv.style.display = 'block';
+            }
+        }, true);
+
+        document.addEventListener('keyup', function(e) {
+            // 检查所有修饰键是否都被释放
+            setTimeout(() => {
+                if (!e.metaKey && !e.ctrlKey && modifierPressed) {
+                    modifierPressed = false;
+                    console.log('🔑 修饰键被释放');
+                    document.body.classList.remove('modifier-pressed');
+                    
+                    const statusDiv = document.getElementById('modifier-status');
+                    if (statusDiv) {
+                        statusDiv.style.display = 'none';
+                    }
+                }
+            }, 10);
+        }, true);
+    </script>
+</body>
+</html>

@@ -22,6 +22,7 @@
       this.isAreaSelection = false;
       this.selectionStart = null;
       this.config = this.getDefaultConfig();
+      this.isSelectionActive = false; // 添加选择状态标记
       
       // 绑定事件处理器，避免bind()问题
       this.boundHandleLinkClick = this.handleLinkClick.bind(this);
@@ -35,12 +36,11 @@
     }
 
     async init() {
-      this.createSelectionUI();
-      this.setupUIEvents();
+      // 不再创建独立的选择器UI，改为轻量级的状态指示器
+      this.createStatusIndicator();
       this.setupMessageListener();
       this.addStyles();
-      // 初始化时设置链接选择模式
-      this.setupLinkSelection();
+      // 默认不启动选择模式，等待来自弹窗的指令
       console.log('[Content] 增强内容选择器已初始化');
     }
 
@@ -66,106 +66,43 @@
       };
     }
 
-    createSelectionUI() {
-      const ui = document.createElement('div');
-      ui.id = 'enhanced-selection-ui';
-      ui.innerHTML = `
+    createStatusIndicator() {
+      // 创建轻量级的状态指示器，而不是完整的UI面板
+      const indicator = document.createElement('div');
+      indicator.id = 'selection-status-indicator';
+      indicator.innerHTML = `
         <div style="
           position: fixed;
-          top: 20px;
+          bottom: 20px;
           right: 20px;
-          background: white;
-          border: 2px solid #007bff;
-          border-radius: 8px;
-          padding: 15px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-          z-index: 10000;
+          background: rgba(0, 123, 255, 0.9);
+          color: white;
+          padding: 10px 15px;
+          border-radius: 25px;
+          font-size: 12px;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          min-width: 200px;
+          z-index: 10000;
+          display: none;
+          box-shadow: 0 3px 12px rgba(0,0,0,0.3);
+          backdrop-filter: blur(10px);
+          max-width: 280px;
+          line-height: 1.4;
         ">
-          <div style="margin-bottom: 10px; font-weight: bold; color: #007bff;">
-            内容选择器
+          <div style="font-weight: bold; margin-bottom: 4px;">
+            🔗 <span id="selection-mode-text">链接选择模式</span>
           </div>
-          
-          <div style="margin-bottom: 10px;">
-            <div style="margin-bottom: 5px; font-size: 12px; color: #666;">选择模式:</div>
-            <div style="display: flex; gap: 5px; flex-wrap: wrap;">
-              <button id="mode-links" class="mode-btn active">链接</button>
-              <button id="mode-text" class="mode-btn">文本</button>
-              <button id="mode-elements" class="mode-btn">元素</button>
-              <button id="mode-area" class="mode-btn">区域</button>
-            </div>
-          </div>
-          
-          <div style="margin-bottom: 10px;">
-            <div style="font-size: 12px; color: #666;">
-              已选择: <span id="selection-info">0</span> 项
-            </div>
-          </div>
-          
-          <div style="display: flex; gap: 5px;">
-            <button id="process-selected" style="
-              background: #28a745;
-              color: white;
-              border: none;
-              padding: 6px 12px;
-              border-radius: 4px;
-              cursor: pointer;
-              font-size: 12px;
-            ">处理选中</button>
-            
-            <button id="clear-selection" style="
-              background: #6c757d;
-              color: white;
-              border: none;
-              padding: 6px 12px;
-              border-radius: 4px;
-              cursor: pointer;
-              font-size: 12px;
-            ">清空</button>
-            
-            <button id="exit-selection" style="
-              background: #dc3545;
-              color: white;
-              border: none;
-              padding: 6px 12px;
-              border-radius: 4px;
-              cursor: pointer;
-              font-size: 12px;
-            ">退出</button>
+          <div style="font-size: 11px; opacity: 0.9;">
+            ${navigator.platform.includes('Mac') ? 'Command' : 'Ctrl'} + 点击选择 | <span id="selection-count-text">已选择: 0</span>
           </div>
         </div>
       `;
-      document.body.appendChild(ui);
+      document.body.appendChild(indicator);
     }
 
-    setupUIEvents() {
-      // 模式切换按钮
-      document.querySelectorAll('.mode-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const mode = e.target.id.replace('mode-', '');
-          this.switchMode(mode);
-        });
-      });
-
-      // 处理选中内容
-      document.getElementById('process-selected').addEventListener('click', () => {
-        this.processSelectedContent();
-      });
-
-      // 清空选择
-      document.getElementById('clear-selection').addEventListener('click', () => {
-        this.clearSelection();
-      });
-
-      // 退出选择模式
-      document.getElementById('exit-selection').addEventListener('click', () => {
-        this.exitSelectionMode();
-      });
-
-      // ESC键退出
+    setupKeyboardEvents() {
+      // ESC键退出选择模式
       document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
+        if (e.key === 'Escape' && this.isSelectionActive) {
           this.exitSelectionMode();
         }
       });
@@ -174,12 +111,6 @@
     switchMode(mode) {
       this.currentMode = mode;
       
-      // 更新按钮状态
-      document.querySelectorAll('.mode-btn').forEach(btn => {
-        btn.classList.remove('active');
-      });
-      document.getElementById(`mode-${mode}`).classList.add('active');
-
       // 清空当前选择
       this.clearSelection();
 
@@ -201,21 +132,55 @@
           this.setupAreaSelection();
           break;
       }
+      
+      // 更新状态指示器
+      if (this.isSelectionActive) {
+        this.updateStatusIndicator();
+      }
     }
 
     removeAllEventListeners() {
-      // 使用绑定的函数引用
-      document.removeEventListener('click', this.boundHandleLinkClick, true);
+      console.log('[Content] 移除所有事件监听器');
+      
+      // 移除链接选择相关的事件监听器
+      document.removeEventListener('click', this.boundHandleLinkClick, { capture: true });
+      window.removeEventListener('click', this.boundHandleLinkClick, { capture: true });
+      
+      // 移除其他事件监听器
       document.removeEventListener('click', this.boundHandleTextClick, true);
       document.removeEventListener('click', this.boundHandleElementClick, true);
       document.removeEventListener('mousedown', this.boundHandleAreaStart);
       document.removeEventListener('mousemove', this.boundHandleAreaMove);
       document.removeEventListener('mouseup', this.boundHandleAreaEnd);
+      
+      console.log('[Content] 所有事件监听器移除完成');
     }
 
     setupLinkSelection() {
-      // 使用绑定的函数引用
-      document.addEventListener('click', this.boundHandleLinkClick, true);
+      console.log('[Content] 设置链接选择事件监听器');
+      
+      // 添加全局click监听器，最高优先级，在文档级别捕获
+      this.setupGlobalClickListener();
+      
+      console.log('[Content] 链接选择事件监听器设置完成');
+    }
+    
+    setupGlobalClickListener() {
+      console.log('[Content] 设置全局点击监听器');
+      
+      // 在 document 上设置最高优先级的点击监听器
+      document.addEventListener('click', this.boundHandleLinkClick, { 
+        capture: true, 
+        passive: false 
+      });
+      
+      // 同时在 window 上设置备用监听器
+      window.addEventListener('click', this.boundHandleLinkClick, { 
+        capture: true, 
+        passive: false 
+      });
+      
+      console.log('[Content] 全局点击监听器设置完成');
     }
 
     setupTextSelection() {
@@ -236,13 +201,62 @@
     }
 
     handleLinkClick(event) {
+      // 立即记录所有关键信息
+      console.log('=== [Content] 链接点击事件触发 ===');
+      console.log('[Content] 事件类型:', event.type);
+      console.log('[Content] 选择模式状态:', this.isSelectionActive);
+      console.log('[Content] 事件目标:', event.target.tagName, event.target.className);
+      console.log('[Content] 修饰键状态:', {
+        metaKey: event.metaKey,
+        ctrlKey: event.ctrlKey,
+        shiftKey: event.shiftKey,
+        altKey: event.altKey
+      });
+      
+      if (!this.isSelectionActive) {
+        console.log('[Content] ⚠️ 选择模式未激活，跳过处理');
+        return;
+      }
+      
       const link = event.target.closest('a');
-      if (!link) return;
+      if (!link) {
+        console.log('[Content] ⚠️ 未找到链接元素，事件目标:', event.target);
+        return;
+      }
       
-      event.preventDefault();
-      event.stopPropagation();
+      console.log('[Content] 🔗 找到链接:', link.href);
       
-      this.toggleElementSelection(link);
+      // 检测修饰键：Mac的Command键(metaKey)或Windows的Ctrl键(ctrlKey)
+      const isModifierPressed = event.metaKey || event.ctrlKey;
+      console.log('[Content] 🔑 修饰键检测结果:', isModifierPressed);
+      
+      if (isModifierPressed) {
+        // 按下修饰键时：选择链接，阻止默认行为
+        console.log('[Content] ✅ 检测到修饰键，执行链接选择操作');
+        console.log('[Content] 🚫 开始阻止默认行为...');
+        
+        // 立即阻止所有默认行为
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        
+        // 添加额外的阻止措施
+        if (event.returnValue !== undefined) {
+          event.returnValue = false;
+        }
+        
+        console.log('[Content] 🎯 开始切换链接选择状态');
+        this.toggleElementSelection(link);
+        console.log('[Content] ✅ 链接选择操作完成');
+        
+        return false;
+      } else {
+        // 没有按修饰键时：允许正常打开链接
+        console.log('[Content] ➡️ 未检测到修饰键，允许正常打开链接:', link.href);
+        console.log('[Content] 🔄 不阻止默认行为，链接将正常打开');
+        // 不阻止默认行为，链接会正常打开
+        return;
+      }
     }
 
     handleTextClick(event) {
@@ -372,9 +386,9 @@
     }
 
     updateSelectionInfo() {
-      const info = document.getElementById('selection-info');
-      if (info) {
-        info.textContent = this.selectedElements.size;
+      // 更新状态指示器
+      if (this.isSelectionActive) {
+        this.updateStatusIndicator();
       }
     }
 
@@ -477,14 +491,112 @@
       }
     }
 
+    startSelectionMode() {
+      console.log('=== [Content] 启动选择模式 ===');
+      console.log('[Content] 当前页面URL:', window.location.href);
+      console.log('[Content] 当前平台:', navigator.platform);
+      console.log('[Content] 用户代理:', navigator.userAgent);
+      
+      // 设置选择状态为激活
+      this.isSelectionActive = true;
+      console.log('[Content] ✅ 选择状态已设置为激活');
+      
+      // 显示状态指示器
+      const indicator = document.getElementById('selection-status-indicator');
+      if (indicator) {
+        console.log('[Content] ✅ 找到状态指示器元素');
+        const statusDiv = indicator.querySelector('div');
+        if (statusDiv) {
+          statusDiv.style.display = 'block';
+          console.log('[Content] ✅ 状态指示器已显示');
+        } else {
+          console.error('[Content] ❌ 未找到状态指示器div元素');
+        }
+      } else {
+        console.error('[Content] ❌ 未找到状态指示器元素');
+        console.log('[Content] 尝试重新创建状态指示器...');
+        this.createStatusIndicator();
+      }
+      
+      // 设置默认模式为链接选择
+      console.log('[Content] 🔄 准备切换到模式:', this.currentMode);
+      this.switchMode(this.currentMode);
+      
+      // 设置键盘事件监听
+      console.log('[Content] ⌨️ 设置键盘事件监听');
+      this.setupKeyboardEvents();
+      
+      // 更新状态指示器内容
+      console.log('[Content] 🔄 更新状态指示器内容');
+      this.updateStatusIndicator();
+      
+      console.log('[Content] ✅ 选择模式启动完成！');
+      console.log('[Content] 当前状态 - 模式:', this.currentMode, '选择状态:', this.isSelectionActive);
+      console.log('[Content] 📝 操作提示: ' + (navigator.platform.includes('Mac') ? 'Command' : 'Ctrl') + ' + 点击链接进行选择');
+    }
+
     exitSelectionMode() {
-      chrome.runtime.sendMessage({ type: 'TOGGLE_SELECTION_MODE' });
+      console.log('[Content] 退出选择模式');
+      this.isSelectionActive = false;
+      
+      // 隐藏状态指示器
+      const indicator = document.getElementById('selection-status-indicator');
+      if (indicator) {
+        const statusDiv = indicator.querySelector('div');
+        if (statusDiv) {
+          statusDiv.style.display = 'none';
+        }
+      }
+      
+      // 清除所有选择
+      this.clearSelection();
+      
+      // 移除事件监听器
+      this.removeAllEventListeners();
+      
+      console.log('[Content] 选择模式已退出');
+    }
+
+    updateStatusIndicator() {
+      const modeText = document.getElementById('selection-mode-text');
+      const countText = document.getElementById('selection-count-text');
+      
+      if (modeText) {
+        const modeNames = {
+          'links': '链接模式',
+          'text': '文本模式', 
+          'elements': '元素模式',
+          'area': '区域模式'
+        };
+        modeText.textContent = modeNames[this.currentMode] || '链接模式';
+      }
+      
+      if (countText) {
+        countText.textContent = `已选择: ${this.selectedElements.size}`;
+      }
     }
 
     setupMessageListener() {
       chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-        if (message.type === 'SWITCH_SELECTION_MODE') {
-          this.switchMode(message.mode);
+        console.log('[Content] 收到消息:', message.type, message);
+        
+        switch (message.type) {
+          case 'START_SELECTION_MODE':
+            this.startSelectionMode();
+            sendResponse({ success: true });
+            break;
+          case 'EXIT_SELECTION_MODE':
+            this.exitSelectionMode();
+            sendResponse({ success: true });
+            break;
+          case 'SWITCH_SELECTION_MODE':
+            this.switchMode(message.mode);
+            sendResponse({ success: true });
+            break;
+          case 'CLEAR_SELECTION':
+            this.clearSelection();
+            sendResponse({ success: true });
+            break;
         }
       });
     }
