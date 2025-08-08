@@ -323,3 +323,17 @@ node tests/test_txt_conversion.js
 ---
 
 **百川归档** - 让内容收集变得简单高效！ 📚✨
+
+function isExtensionContextValid() {
+  return typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;
+}
+
+function safeChromeStorageGet(key, callback) {
+  try {
+    if (chrome && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get([key], callback);
+    }
+  } catch (e) {
+    console.warn('chrome.storage.local.get 调用失败，扩展上下文可能已失效', e);
+  }
+}
