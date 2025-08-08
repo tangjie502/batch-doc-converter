@@ -222,11 +222,17 @@
 
     // 设置链接选择
     setupLinkSelection() {
-      const links = document.querySelectorAll('a[href]');
-      links.forEach(link => {
-        link.addEventListener('click', this.boundHandleLinkClick);
-        link.style.cursor = 'pointer';
-      });
+      try {
+        const links = document.querySelectorAll('a[href]');
+        links.forEach(link => {
+          if (link && link.style) {
+            link.addEventListener('click', this.boundHandleLinkClick);
+            link.style.cursor = 'pointer';
+          }
+        });
+      } catch (error) {
+        console.error('[Content] 设置链接选择时出错:', error);
+      }
     }
 
     // 设置文本选择
@@ -236,21 +242,27 @@
 
     // 设置元素选择
     setupElementSelection() {
-      const elements = document.querySelectorAll('p, div, span, h1, h2, h3, h4, h5, h6, ul, ol, li, blockquote, pre, code, img, table');
-      elements.forEach(element => {
-        element.addEventListener('click', this.boundHandleElementClick);
-        element.style.cursor = 'pointer';
-        element.addEventListener('mouseenter', (e) => {
-          if (this.isSelectionActive && this.currentMode === 'elements') {
-            e.target.style.outline = '2px dashed #007bff';
+      try {
+        const elements = document.querySelectorAll('p, div, span, h1, h2, h3, h4, h5, h6, ul, ol, li, blockquote, pre, code, img, table');
+        elements.forEach(element => {
+          if (element && element.style) {
+            element.addEventListener('click', this.boundHandleElementClick);
+            element.style.cursor = 'pointer';
+            element.addEventListener('mouseenter', (e) => {
+              if (this.isSelectionActive && this.currentMode === 'elements' && e.target && e.target.style) {
+                e.target.style.outline = '2px dashed #007bff';
+              }
+            });
+            element.addEventListener('mouseleave', (e) => {
+              if (this.isSelectionActive && this.currentMode === 'elements' && !this.selectedElements.has(e.target) && e.target && e.target.style) {
+                e.target.style.outline = '';
+              }
+            });
           }
         });
-        element.addEventListener('mouseleave', (e) => {
-          if (this.isSelectionActive && this.currentMode === 'elements' && !this.selectedElements.has(e.target)) {
-            e.target.style.outline = '';
-          }
-        });
-      });
+      } catch (error) {
+        console.error('[Content] 设置元素选择时出错:', error);
+      }
     }
 
     // 设置区域选择
@@ -370,10 +382,13 @@
 
     // 选择元素
     selectElement(element) {
-      if (this.selectedElements.has(element)) return;
+      if (!element || this.selectedElements.has(element)) return;
       
       this.selectedElements.add(element);
-      element.classList.add('optimized-selected');
+      
+      if (element.classList) {
+        element.classList.add('optimized-selected');
+      }
       
       // 如果是链接，添加到链接数组
       if (element.tagName === 'A' && element.href) {
@@ -386,8 +401,13 @@
 
     // 取消选择元素
     deselectElement(element) {
+      if (!element) return;
+      
       this.selectedElements.delete(element);
-      element.classList.remove('optimized-selected');
+      
+      if (element.classList) {
+        element.classList.remove('optimized-selected');
+      }
       
       // 如果是链接，从链接数组中移除
       if (element.tagName === 'A' && element.href) {
@@ -404,7 +424,7 @@
     // 清空选择
     clearSelection() {
       this.selectedElements.forEach(element => {
-        if (element.classList) {
+        if (element && element.classList) {
           element.classList.remove('optimized-selected');
         }
       });
@@ -418,13 +438,40 @@
     // 从弹窗触发：收集选中内容并通知后台处理
     processSelectedContentFromPopup(config = {}) {
       try {
+        console.log('[Content] 开始处理选中内容');
+        console.log('[Content] 当前模式:', this.currentMode);
+        console.log('[Content] 选中元素数量:', this.selectedElements.size);
+        console.log('[Content] 选择模式是否激活:', this.isSelectionActive);
+        
         const contentData = [];
         let index = 0;
 
+        // 添加调试信息：检查selectedElements的内容
+        if (this.selectedElements.size === 0) {
+          console.warn('[Content] 没有选中任何元素，请确保：');
+          console.warn('1. 已启动选择模式');
+          console.warn('2. 在链接模式下，需要按住 Ctrl/Cmd 并点击链接进行选择');
+          console.warn('3. 在其他模式下，直接点击元素进行选择');
+        } else {
+          console.log('[Content] 选中的元素详情:');
+          let elementIndex = 0;
+          this.selectedElements.forEach(el => {
+            console.log(`  [${elementIndex++}]`, {
+              tagName: el?.tagName,
+              href: el?.href,
+              textContent: el?.textContent?.substring(0, 50) + '...',
+              type: el?.type,
+              hasOuterHTML: !!el?.outerHTML
+            });
+          });
+        }
+
         if (this.currentMode === 'links') {
+          console.log('[Content] 处理链接模式的选中内容');
           // 仅处理已选中的链接元素
           this.selectedElements.forEach(el => {
             if (el && el.tagName === 'A' && el.href) {
+              console.log('[Content] 找到有效链接:', el.href);
               contentData.push({
                 type: 'links',
                 content: (el.textContent || '').trim(),
@@ -432,73 +479,113 @@
                 element: 'a',
                 index: index++
               });
+            } else {
+              console.warn('[Content] 跳过无效链接元素:', el);
             }
           });
         } else if (this.currentMode === 'text') {
+          console.log('[Content] 处理文本模式的选中内容');
           // 选中文本：selectedElements 中存有对象
           this.selectedElements.forEach(item => {
             if (item && typeof item === 'object' && item.type === 'text') {
+              console.log('[Content] 找到有效文本:', item.text?.substring(0, 50));
               contentData.push({
                 type: 'text',
                 content: (item.text || '').trim(),
                 element: 'text',
                 index: index++
               });
+            } else {
+              console.warn('[Content] 跳过无效文本项:', item);
             }
           });
         } else if (this.currentMode === 'elements' || this.currentMode === 'area') {
+          console.log('[Content] 处理元素/区域模式的选中内容');
           this.selectedElements.forEach(el => {
             if (el && el.outerHTML) {
+              console.log('[Content] 找到有效元素:', el.tagName);
               contentData.push({
                 type: this.currentMode,
                 content: el.outerHTML,
                 element: (el.tagName || '').toLowerCase(),
                 index: index++
               });
+            } else {
+              console.warn('[Content] 跳过无效元素:', el);
             }
           });
         }
 
-        console.log('[Content] 准备发送选中内容到后台:', contentData);
+        console.log('[Content] 最终收集到的内容数据:', contentData);
 
         if (!contentData.length) {
           console.warn('[Content] 未收集到选中内容');
+          console.warn('[Content] 可能的原因:');
+          console.warn('- 还没有选择任何内容');
+          console.warn('- 选择的元素类型与当前模式不匹配');
+          console.warn('- 选择的元素已经被DOM移除或变为无效');
+          
+          // 即使没有内容也发送消息，让后台处理错误情况
+          chrome.runtime.sendMessage({
+            type: 'PROCESS_SELECTED_CONTENT',
+            contentData: [],
+            config,
+            error: '未收集到选中内容，请检查是否已正确选择内容'
+          }).catch(err => {
+            console.error('[Content] 发送空内容消息失败:', err);
+          });
+          return;
         }
 
         chrome.runtime.sendMessage({
           type: 'PROCESS_SELECTED_CONTENT',
           contentData,
           config
-        }).catch(err => console.error('[Content] 发送处理选中内容失败:', err));
+        }).catch(err => {
+          if (err.message && err.message.includes('Extension context invalidated')) {
+            console.log('[Content] 扩展上下文已失效，忽略错误');
+          } else {
+            console.error('[Content] 发送处理选中内容失败:', err);
+          }
+        });
       } catch (err) {
         console.error('[Content] 处理选中内容（来自弹窗）失败:', err);
+        console.error('[Content] 错误详情:', err.stack);
       }
     }
 
     // 移除所有事件监听器
     removeAllEventListeners() {
-      // 移除链接事件
-      const links = document.querySelectorAll('a[href]');
-      links.forEach(link => {
-        link.removeEventListener('click', this.boundHandleLinkClick);
-        link.style.cursor = '';
-      });
-      
-      // 移除文本事件
-      document.removeEventListener('mouseup', this.boundHandleTextClick);
-      
-      // 移除元素事件
-      const elements = document.querySelectorAll('p, div, span, h1, h2, h3, h4, h5, h6, ul, ol, li, blockquote, pre, code, img, table');
-      elements.forEach(element => {
-        element.removeEventListener('click', this.boundHandleElementClick);
-        element.style.cursor = '';
-        element.style.outline = '';
-      });
-      
-      // 移除区域事件
-      document.removeEventListener('mousedown', this.boundHandleAreaStart);
-      document.removeEventListener('mousemove', this.boundHandleAreaMove);
-      document.removeEventListener('mouseup', this.boundHandleAreaEnd);
+      try {
+        // 移除链接事件
+        const links = document.querySelectorAll('a[href]');
+        links.forEach(link => {
+          if (link && link.style) {
+            link.removeEventListener('click', this.boundHandleLinkClick);
+            link.style.cursor = '';
+          }
+        });
+        
+        // 移除文本事件
+        document.removeEventListener('mouseup', this.boundHandleTextClick);
+        
+        // 移除元素事件
+        const elements = document.querySelectorAll('p, div, span, h1, h2, h3, h4, h5, h6, ul, ol, li, blockquote, pre, code, img, table');
+        elements.forEach(element => {
+          if (element && element.style) {
+            element.removeEventListener('click', this.boundHandleElementClick);
+            element.style.cursor = '';
+            element.style.outline = '';
+          }
+        });
+        
+        // 移除区域事件
+        document.removeEventListener('mousedown', this.boundHandleAreaStart);
+        document.removeEventListener('mousemove', this.boundHandleAreaMove);
+        document.removeEventListener('mouseup', this.boundHandleAreaEnd);
+      } catch (error) {
+        console.error('[Content] 移除事件监听器时出错:', error);
+      }
     }
 
     // 通知弹窗更新
@@ -509,7 +596,13 @@
         count: this.selectedElements.size,
         selectedLinks: this.selectedLinks,
         mode: this.currentMode
-      }).catch(err => console.log('[Content] 通知弹窗失败:', err));
+      }).catch(err => {
+        if (err.message && err.message.includes('Extension context invalidated')) {
+          console.log('[Content] 扩展上下文已失效，忽略通知错误');
+        } else {
+          console.log('[Content] 通知弹窗失败:', err);
+        }
+      });
     }
 
     // 添加样式

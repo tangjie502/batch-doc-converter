@@ -3,6 +3,186 @@ console.log('[Offscreen] offscreen_enhanced.js 已加载');
 // 初始化 Turndown 转换器
 let turndownService = null;
 
+// ========== MarkDownload 风格的 Turndown 增强（仅美化样式，保持流程不变） ==========
+function isInsideTable(node) {
+  let parent = node && node.parentNode;
+  while (parent) {
+    if (parent.nodeName === 'TABLE') return true;
+    parent = parent.parentNode;
+  }
+  return false;
+}
+
+function visibleLength(text) {
+  return (text || '')
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/[*_~`]+(.*?)[*_~`]+/g, '$1')
+    .length;
+}
+
+function createMarkStyledTurndownService(options, baseURI) {
+  const opts = options || (typeof defaultOptions !== 'undefined' ? defaultOptions : {});
+
+  // 保留/关闭转义
+  if (typeof TurndownService !== 'undefined') {
+    if (!TurndownService.prototype.defaultEscape) {
+      TurndownService.prototype.defaultEscape = TurndownService.prototype.escape;
+    }
+    TurndownService.prototype.escape = opts.turndownEscape === false
+      ? (s => s)
+      : TurndownService.prototype.defaultEscape;
+  }
+
+  const service = new TurndownService({
+    headingStyle: opts.headingStyle || 'atx',
+    hr: opts.hr || '---',
+    bulletListMarker: opts.bulletListMarker || '-',
+    codeBlockStyle: opts.codeBlockStyle || 'fenced',
+    fence: opts.fence || '```',
+    emDelimiter: opts.emDelimiter || '*',
+    strongDelimiter: opts.strongDelimiter || '**',
+    linkStyle: opts.linkStyle || 'inlined',
+    linkReferenceStyle: opts.linkReferenceStyle || 'full'
+  });
+
+  // 非表格 GFM 功能
+  if (typeof turndownPluginGfm !== 'undefined') {
+    service.use([
+      turndownPluginGfm.highlightedCodeBlock,
+      turndownPluginGfm.strikethrough,
+      turndownPluginGfm.taskListItems
+    ]);
+  }
+
+  // 移除不需要的元素
+  service.remove(['script','style','link','meta','iframe','frame','nav','aside','form','button','input','textarea','select','option']);
+  // 保留一些内联标记
+  service.keep(['sub','sup','u','ins','del','small','big']);
+
+  // 清理空标题
+  service.addRule('cleanEmptyHeaders', {
+    filter: function (node) {
+      return node.nodeName.match(/^H[1-6]$/) && (!node.textContent || node.textContent.trim() === '');
+    },
+    replacement: function () { return ''; }
+  });
+
+  // 围栏代码块（含语言自动识别）
+  service.addRule('fencedCodeBlock', {
+    filter: function (node, tdopts) {
+      return (
+        tdopts.codeBlockStyle === 'fenced' &&
+        node.nodeName === 'PRE' &&
+        node.firstChild && node.firstChild.nodeName === 'CODE'
+      );
+    },
+    replacement: function (content, node, tdopts) {
+      const codeNode = node.firstChild;
+      const className = codeNode.getAttribute('class') || '';
+      let language = (className.match(/language-(\w+)/) || [null, ''])[1];
+      if (!language && typeof hljs !== 'undefined') {
+        try {
+          const result = hljs.highlightAuto(codeNode.textContent || '');
+          language = result.language || '';
+        } catch (_) {}
+      }
+      const fence = (tdopts.fence || '```').charAt(0).repeat(3);
+      return `\n\n${fence}${language}\n${codeNode.textContent}\n${fence}\n\n`;
+    }
+  });
+
+  // 链接（表格内可剥离）
+  service.addRule('links', {
+    filter: (node) => node.nodeName === 'A' && node.getAttribute('href'),
+    replacement: (content, node) => {
+      const stripInTable = (opts.tableFormatting && opts.tableFormatting.stripLinks === true);
+      if ((stripInTable && isInsideTable(node)) || opts.linkStyle === 'stripLinks') {
+        return content;
+      }
+      const hrefRaw = node.getAttribute('href');
+      let href = hrefRaw || '';
+      if (baseURI) { try { href = new URL(hrefRaw, baseURI).href; } catch (_) {} }
+      const title = node.getAttribute('title');
+      const titlePart = title ? ` "${title}"` : '';
+      return `[${content}](${href}${titlePart})`;
+    }
+  });
+
+  // 表格美化
+  service.addRule('prettyTable', {
+    filter: 'table',
+    replacement: function (content, tableNode) {
+      try {
+        const stripFormatting = !!(opts.tableFormatting && opts.tableFormatting.stripFormatting);
+        const prettyPrint = opts.tableFormatting ? opts.tableFormatting.prettyPrint !== false : true;
+        const centerText = !!(opts.tableFormatting && opts.tableFormatting.centerText);
+
+        const cellService = new TurndownService({
+          headingStyle: 'atx', hr: '---', bulletListMarker: '-', codeBlockStyle: 'fenced', fence: '```',
+          emDelimiter: opts.emDelimiter || '*', strongDelimiter: opts.strongDelimiter || '**',
+          linkStyle: (opts.tableFormatting && opts.tableFormatting.stripLinks) ? 'stripLinks' : (opts.linkStyle || 'inlined'),
+          linkReferenceStyle: opts.linkReferenceStyle || 'full'
+        });
+        if (typeof turndownPluginGfm !== 'undefined') {
+          cellService.use([turndownPluginGfm.strikethrough, turndownPluginGfm.taskListItems]);
+        }
+
+        const rows = Array.from(tableNode.querySelectorAll('tr')).map(tr => {
+          return Array.from(tr.querySelectorAll('th,td')).map(td => {
+            const container = document.createElement('div');
+            container.innerHTML = td.innerHTML;
+            if (stripFormatting) {
+              ['b','strong','i','em','u','mark','sub','sup'].forEach(tag => {
+                Array.from(container.getElementsByTagName(tag)).forEach(el => {
+                  el.replaceWith(document.createTextNode(el.textContent.trim()));
+                });
+              });
+            }
+            let text = cellService.turndown(container.innerHTML)
+              .replace(/\n/g, ' ')
+              .replace(/\s+/g, ' ')
+              .replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g, ' ') // 替换各种空格字符为标准空格
+              .trim()
+              .replace(/\|/g, '\\|');
+            return text || ' ';
+          });
+        });
+
+        if (!rows.length) return '';
+        const colCount = Math.max(...rows.map(r => r.length));
+        const colWidths = Array.from({ length: colCount }, (_, i) => {
+          return Math.max(...rows.map(r => visibleLength(r[i] || '')), 3);
+        });
+
+        const padCell = (text, idx) => {
+          const t = text || '';
+          if (!prettyPrint || t.includes('\n')) return ` ${t} `;
+          const width = colWidths[idx] + 2;
+          const len = visibleLength(t);
+          if (!centerText) return ` ${t}${' '.repeat(Math.max(0, width - len - 1))}`;
+          const left = Math.floor(Math.max(0, width - len) / 2);
+          const right = Math.ceil(Math.max(0, width - len) / 2);
+          return `${' '.repeat(left)}${t}${' '.repeat(right)}`;
+        };
+
+        let md = '\n\n';
+        const firstRowIsHeader = tableNode.querySelector('tr') && Array.from(tableNode.querySelector('tr').children).every(n => n.nodeName === 'TH');
+        const header = rows[0] || [];
+        const dataRows = firstRowIsHeader ? rows.slice(1) : rows;
+        md += '|' + header.map((c,i) => padCell(c,i)).join('|') + '|\n';
+        md += '|' + colWidths.map(w => '-'.repeat(Math.max(3, w + 2))).join('|') + '|\n';
+        dataRows.forEach(r => { md += '|' + r.map((c,i) => padCell(c,i)).join('|') + '|\n'; });
+        return md + '\n';
+      } catch (e) {
+        console.error('[Offscreen] 表格转换失败:', e);
+        return content;
+      }
+    }
+  });
+
+  return service;
+}
+
 // 增强表格处理规则
 function addEnhancedTableRules(turndownService) {
   // 自定义表格规则 - 支持表格对齐和格式化
@@ -462,6 +642,7 @@ function processImages(markdown, url) {
 // 处理HTML内容转换为Markdown
 function processHtmlContent(htmlContent, url = '', config = {}) {
   console.log('[Offscreen] 处理HTML内容');
+  console.log('[Offscreen] 使用 MarkDownload 风格转换器 - 版本:', Date.now());
   
   if (!turndownService) {
     initTurndownService();
@@ -471,8 +652,19 @@ function processHtmlContent(htmlContent, url = '', config = {}) {
     // 首先使用 Readability 提取主要内容
     const extracted = extractReadableContent(htmlContent, url, config);
     
-    // 使用Turndown转换HTML为Markdown
-    let markdown = turndownService.turndown(extracted.content);
+    // 使用 MarkDownload 风格的 Turndown 进行更美观的 Markdown 转换
+    const options = (typeof defaultOptions !== 'undefined') ? defaultOptions : {};
+    console.log('[Offscreen] 使用配置选项:', JSON.stringify(options, null, 2));
+    const service = createMarkStyledTurndownService(options, url);
+    console.log('[Offscreen] MarkDownload 风格转换器创建成功');
+    let markdown = service.turndown(extracted.content);
+    console.log('[Offscreen] 转换完成，Markdown 长度:', markdown.length);
+    console.log('[Offscreen] Markdown 预览 (前500字符):', markdown.substring(0, 500));
+    
+    // 关键字符清理（参考 MarkSnip）：移除非打印特殊字符
+    // 这些字符在CodeMirror中会显示为红点，导致显示问题
+    markdown = markdown.replace(/[\u0000-\u0009\u000b\u000c\u000e-\u001f\u007f-\u009f\u00ad\u061c\u200b-\u200f\u2028\u2029\ufeff\ufff9-\ufffc]/g, '');
+    console.log('[Offscreen] 字符清理后长度:', markdown.length);
     
     // 添加标题
     if (extracted.title && extracted.title !== '未知标题') {
@@ -590,24 +782,45 @@ function convertPunctuation(text) {
   });
 }
 
-// 中英文间距修复
+// 中英文间距修复（先清理异常空格，再规范化间距）
 function fixChineseEnglishSpacing(text) {
-  // 中文字符正则
-  const chineseChar = '[\u4e00-\u9fff\u3400-\u4dbf\u20000-\u2a6df\u2a700-\u2b73f\u2b740-\u2b81f\u2b820-\u2ceaf]';
-  // 英文字符和数字正则
-  const englishChar = '[a-zA-Z0-9]';
+  let fixed = text;
   
-  return text
-    // 中文后面跟英文/数字，添加空格
-    .replace(new RegExp(`(${chineseChar})([a-zA-Z0-9])`, 'g'), '$1 $2')
-    // 英文/数字后面跟中文，添加空格
-    .replace(new RegExp(`([a-zA-Z0-9])(${chineseChar})`, 'g'), '$1 $2')
-    // 中文后面跟英文标点，添加空格
-    .replace(new RegExp(`(${chineseChar})([.,!?;:])`, 'g'), '$1 $2')
-    // 清理多余的连续空格
-    .replace(/\s{2,}/g, ' ')
-    // 清理行首行尾的空格
-    .replace(/^\s+|\s+$/gm, '');
+  // 第一步：清理异常空格（参考基础版本的修复逻辑）
+  // 移除中文字符间的异常空格
+  fixed = fixed.replace(/([\u4e00-\u9fff])\s+([\u4e00-\u9fff])/g, '$1$2');
+  
+  // 特殊修复：链接文本和URL中的异常空格
+  // 修复链接文本中的空格（方括号内）
+  fixed = fixed.replace(/\[([^\]]*)\]/g, (match, content) => {
+    const cleanContent = content.replace(/([\u4e00-\u9fff])\s+([\u4e00-\u9fff])/g, '$1$2'); // 中文字符间去空格
+    return `[${cleanContent}]`;
+  });
+  
+  // 修复URL中的空格（圆括号内）
+  fixed = fixed.replace(/\(([^)]*)\)/g, (match, content) => {
+    const cleanContent = content.replace(/\s+/g, ''); // URL中完全移除空格
+    return `(${cleanContent})`;
+  });
+  
+  // 修复标点符号周围的异常空格
+  fixed = fixed.replace(/([\u4e00-\u9fff])\s+([，。！？：；])/g, '$1$2'); // 中文字符后的标点
+  fixed = fixed.replace(/([，。！？：；])\s+([\u4e00-\u9fff])/g, '$1$2'); // 标点后的中文字符
+  
+  // 第二步：规范化间距（原有逻辑的简化版）
+  // 中文字符正则
+  const chineseChar = '[\u4e00-\u9fff]';
+  
+  // 注意：这里不再添加中英文间的空格，因为在这个使用场景中会造成问题
+  // 如果需要，可以根据具体需求调整
+  
+  // 清理多余的连续空格
+  fixed = fixed.replace(/\s{2,}/g, ' ');
+  
+  // 清理行首行尾的空格
+  fixed = fixed.replace(/^\s+|\s+$/gm, '');
+  
+  return fixed;
 }
 
 // 换行优化
@@ -759,16 +972,98 @@ function createSeparatorCell(width, center = false) {
 // 处理原始HTML数据
 function processRawHtml(arrayBuffer, contentType, url, config = {}) {
   console.log('[Offscreen] 处理原始HTML:', url);
+  console.log('[Offscreen] Content-Type:', contentType);
+  console.log('[Offscreen] ArrayBuffer 大小:', arrayBuffer.byteLength);
   
   try {
-    // 将ArrayBuffer转换为文本
-    const decoder = new TextDecoder('utf-8');
-    const htmlContent = decoder.decode(arrayBuffer);
+    // 首先尝试从 Content-Type 中获取编码
+    let encoding = 'utf-8';
+    if (contentType && contentType.includes('charset=')) {
+      const charsetMatch = contentType.match(/charset=([^;]+)/i);
+      if (charsetMatch) {
+        encoding = charsetMatch[1].toLowerCase();
+        console.log('[Offscreen] 从 Content-Type 检测到编码:', encoding);
+      }
+    }
+    
+    // 尝试解码
+    let htmlContent = null;
+    let usedEncoding = null;
+    
+    // 优先尝试检测到的编码
+    if (encoding !== 'utf-8') {
+      try {
+        const decoder = new TextDecoder(encoding);
+        htmlContent = decoder.decode(arrayBuffer);
+        usedEncoding = encoding;
+        console.log(`[Offscreen] 使用 ${encoding} 编码成功`);
+      } catch (e) {
+        console.warn(`[Offscreen] ${encoding} 编码失败，回退到 UTF-8:`, e);
+      }
+    }
+    
+    // 如果检测的编码失败，尝试 UTF-8
+    if (!htmlContent) {
+      try {
+        const decoder = new TextDecoder('utf-8');
+        htmlContent = decoder.decode(arrayBuffer);
+        usedEncoding = 'utf-8';
+        console.log('[Offscreen] 使用 UTF-8 编码成功');
+      } catch (e) {
+        console.warn('[Offscreen] UTF-8 编码失败:', e);
+      }
+    }
+    
+    // 如果 UTF-8 也失败，尝试其他常见编码
+    if (!htmlContent) {
+      const fallbackEncodings = ['gbk', 'gb2312', 'big5', 'iso-8859-1', 'windows-1252'];
+      for (const fallbackEncoding of fallbackEncodings) {
+        try {
+          const decoder = new TextDecoder(fallbackEncoding);
+          htmlContent = decoder.decode(arrayBuffer);
+          usedEncoding = fallbackEncoding;
+          console.log(`[Offscreen] 使用 ${fallbackEncoding} 编码成功`);
+          break;
+        } catch (e) {
+          console.warn(`[Offscreen] ${fallbackEncoding} 编码失败:`, e);
+        }
+      }
+    }
+    
+    // 检查解码结果
+    if (!htmlContent || htmlContent.trim() === '') {
+      throw new Error('所有编码尝试都失败，无法解码HTML内容');
+    }
+    
+    console.log('[Offscreen] 解码后HTML长度:', htmlContent.length);
+    console.log('[Offscreen] 使用的编码:', usedEncoding);
+    console.log('[Offscreen] HTML预览 (前200字符):', htmlContent.substring(0, 200));
+    
+    // 检查HTML内容是否包含中文字符（用于验证编码是否正确）
+    const chineseCharCount = (htmlContent.match(/[\u4e00-\u9fff]/g) || []).length;
+    console.log('[Offscreen] 中文字符数量:', chineseCharCount);
+    
+    // 如果内容包含中文字符但看起来被分割了，尝试重新编码
+    if (chineseCharCount > 0 && htmlContent.includes(' ')) {
+      const suspiciousPattern = /[\u4e00-\u9fff]\s+[\u4e00-\u9fff]/;
+      if (suspiciousPattern.test(htmlContent)) {
+        console.warn('[Offscreen] 检测到中文字符被错误分割，尝试修复...');
+        
+        // 尝试修复分割的中文字符
+        htmlContent = htmlContent.replace(/([\u4e00-\u9fff])\s+([\u4e00-\u9fff])/g, '$1$2');
+        htmlContent = htmlContent.replace(/([\u4e00-\u9fff])\s+([\u4e00-\u9fff])/g, '$1$2');
+        
+        console.log('[Offscreen] 修复后的HTML预览 (前200字符):', htmlContent.substring(0, 200));
+      }
+    }
     
     // 处理HTML内容
     const result = processHtmlContent(htmlContent, url, config);
     
     console.log('[Offscreen] 原始HTML处理完成');
+    console.log('[Offscreen] 最终Markdown长度:', result.markdown.length);
+    console.log('[Offscreen] 最终Markdown预览 (前300字符):', result.markdown.substring(0, 300));
+    
     return result;
   } catch (error) {
     console.error('[Offscreen] 原始HTML处理失败:', error);
@@ -835,9 +1130,43 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ markdown: md });
         return true;
         
+      // 新增：处理状态更新消息（来自 background）
+      case 'STATE_UPDATE':
+        console.log('[Offscreen] 收到状态更新消息:', message.state);
+        // offscreen 不需要处理状态更新，但也不应该报错
+        sendResponse({ success: true });
+        break;
+        
+      // 新增：处理其他可能的消息类型
+      case 'GET_STATE':
+        console.log('[Offscreen] 收到获取状态消息');
+        sendResponse({ success: true, state: { isOffscreen: true } });
+        break;
+        
+      case 'TOGGLE_SELECTION_MODE':
+      case 'SWITCH_SELECTION_MODE':
+      case 'ADD_LINK':
+      case 'REMOVE_LINK':
+      case 'PROCESS_QUEUE':
+      case 'PROCESS_SELECTED_CONTENT':
+      case 'PROCESS_LINKS_QUEUE':
+      case 'PROCESSING_COMPLETE':
+      case 'PROCESSING_ERROR':
+      case 'START_SELECTION_MODE':
+      case 'EXIT_SELECTION_MODE':
+      case 'CLEAR_SELECTION':
+      case 'SELECTION_UPDATED':
+      case 'html-process-result':
+      case 'html-process-error':
+        // 这些消息通常由 background 处理，offscreen 可以忽略
+        console.log('[Offscreen] 收到 background 消息类型:', message.type);
+        sendResponse({ success: true });
+        break;
+        
       default:
         console.warn('[Offscreen] 未知消息类型:', message.type);
-        sendResponse({ success: false, error: '未知消息类型' });
+        // 不要报错，而是静默处理
+        sendResponse({ success: true });
     }
   } catch (error) {
     console.error('[Offscreen] 消息处理失败:', error);

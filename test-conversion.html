@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown 转换测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; max-width: 800px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .expected { background-color: #f0f8ff; }
+        .actual { background-color: #fff8f0; }
+        pre { background-color: #f4f4f4; padding: 10px; border-radius: 5px; overflow-x: auto; }
+        table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .highlight { background-color: #ffffcc; }
+    </style>
+</head>
+<body>
+    <h1>Markdown 转换样式测试</h1>
+    <p>这个页面用于测试新的 MarkDownload 风格转换是否生效。</p>
+
+    <div class="test-section">
+        <h2>1. 表格测试</h2>
+        <p>预期效果：表格应该对齐，表格内链接被剥离，文本居中</p>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>功能</th>
+                    <th>状态</th>
+                    <th>描述</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>表格美化</strong></td>
+                    <td><a href="https://example.com">启用</a></td>
+                    <td>表格对齐和格式化</td>
+                </tr>
+                <tr>
+                    <td><em>代码块</em></td>
+                    <td>启用</td>
+                    <td>语言识别和语法高亮</td>
+                </tr>
+                <tr>
+                    <td>链接处理</td>
+                    <td>启用</td>
+                    <td>表格内链接剥离</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="test-section">
+        <h2>2. 代码块测试</h2>
+        <p>预期效果：代码块应该有语言标识，格式规范</p>
+        
+        <pre><code class="language-javascript">function testMarkdown() {
+    const table = document.querySelector('table');
+    const rows = table.querySelectorAll('tr');
+    
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td, th');
+        cells.forEach(cell => {
+            console.log(cell.textContent);
+        });
+    });
+}</code></pre>
+    </div>
+
+    <div class="test-section">
+        <h2>3. 链接测试</h2>
+        <p>预期效果：普通链接保持，表格内链接被剥离</p>
+        
+        <p>这是一个 <a href="https://github.com">GitHub</a> 链接，以及一个 <a href="https://stackoverflow.com" title="编程问答社区">Stack Overflow</a> 链接。</p>
+    </div>
+
+    <div class="test-section">
+        <h2>4. 格式化测试</h2>
+        <p>预期效果：粗体、斜体、行内代码正确转换</p>
+        
+        <p>这是<strong>粗体文本</strong>和<em>斜体文本</em>，还有<code>行内代码</code>。</p>
+    </div>
+
+    <div class="test-section">
+        <h2>5. 列表测试</h2>
+        <p>预期效果：列表格式正确</p>
+        
+        <ul>
+            <li>第一项</li>
+            <li>第二项</li>
+            <li>第三项</li>
+        </ul>
+
+        <ol>
+            <li>有序列表第一项</li>
+            <li>有序列表第二项</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>使用说明</h2>
+        <ol>
+            <li>确保扩展已刷新（在 chrome://extensions/ 中点击刷新按钮）</li>
+            <li>使用扩展选择此页面内容</li>
+            <li>查看转换后的 Markdown 是否具有以下特征：
+                <ul>
+                    <li>表格对齐且美观</li>
+                    <li>表格内链接被剥离（只保留文本）</li>
+                    <li>代码块有语言标识（如 ```javascript）</li>
+                    <li>普通链接保持完整格式</li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+
+    <script>
+        // 添加一些调试信息
+        console.log('Markdown 转换测试页面已加载');
+        console.log('请使用扩展转换此页面内容');
+    </script>
+</body>
+</html> 

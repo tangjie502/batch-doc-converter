@@ -184,7 +184,9 @@ ${state.selectedLinks.map((url, index) => `${index + 1}. ${url}`).join('\n')}
 // Offscreen 文档管理函数 (保持不变)
 async function setupOffscreenDocument(path) {
   const existingContexts = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
-  if (existingContexts.length > 0) return;
+  if (existingContexts.length > 0) {
+    try { await chrome.offscreen.closeDocument(); } catch (e) {}
+  }
   await chrome.offscreen.createDocument({
     url: path,
     reasons: ['DOM_PARSER', 'DOM_SCRAPING'],

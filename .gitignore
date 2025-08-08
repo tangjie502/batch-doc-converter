@@ -151,3 +151,95 @@ exter/markdownload-extension-updated-main/xcode/MarkDownload - Markdown Web Clip
 .cursor/rules/javascript-standards.mdc
 .cursor/rules/project-structure.mdc
 .cursor/rules/ui-styling.mdc
+src/exter/markdownload-extension-updated-main/.gitignore
+src/exter/markdownload-extension-updated-main/CHANGELOG.md
+src/exter/markdownload-extension-updated-main/LICENSE
+src/exter/markdownload-extension-updated-main/PRIVACY.md
+src/exter/markdownload-extension-updated-main/README.md
+src/exter/markdownload-extension-updated-main/user-guide.md
+src/exter/markdownload-extension-updated-main/.github/FUNDING.yml
+src/exter/markdownload-extension-updated-main/.github/workflows/addIssuesToProject.yml
+src/exter/markdownload-extension-updated-main/media/Chrome.Screenshot.1.png
+src/exter/markdownload-extension-updated-main/media/Chrome.Screenshot.ClipSelection.png
+src/exter/markdownload-extension-updated-main/media/Chrome.Screenshot.DownloadAll1.png
+src/exter/markdownload-extension-updated-main/media/Chrome.Screenshot.Settings1.png
+src/exter/markdownload-extension-updated-main/media/Chrome.Screenshot.Settings2.png
+src/exter/markdownload-extension-updated-main/media/Chrome.Screenshot.Settings3.png
+src/exter/markdownload-extension-updated-main/media/Edge Logo.png
+src/exter/markdownload-extension-updated-main/media/Firefox.Screenshot.1.png
+src/exter/markdownload-extension-updated-main/media/Firefox.Screenshot.ClipSelection.png
+src/exter/markdownload-extension-updated-main/media/Firefox.Screenshot.DownloadAll1.png
+src/exter/markdownload-extension-updated-main/media/Firefox.Screenshot.DownloadAll2.png
+src/exter/markdownload-extension-updated-main/media/Firefox.Screenshot.Settings1.png
+src/exter/markdownload-extension-updated-main/media/Firefox.Screenshot.Settings2.png
+src/exter/markdownload-extension-updated-main/media/Firefox.Screenshot.Settings3.png
+src/exter/markdownload-extension-updated-main/media/large promo.jpg
+src/exter/markdownload-extension-updated-main/media/Marquee Promo.jpg
+src/exter/markdownload-extension-updated-main/media/Marquee Promo.png
+src/exter/markdownload-extension-updated-main/media/Safari.Screenshot.1.png
+src/exter/markdownload-extension-updated-main/media/Safari.Screenshot.ClipSelection.png
+src/exter/markdownload-extension-updated-main/media/Safari.Screenshot.DownloadAll.png
+src/exter/markdownload-extension-updated-main/media/Safari.Screenshot.Settings1.png
+src/exter/markdownload-extension-updated-main/media/Safari.Screenshot.Settings2.png
+src/exter/markdownload-extension-updated-main/media/small Promo.jpg
+src/exter/markdownload-extension-updated-main/media/SmallPromo.png
+src/exter/markdownload-extension-updated-main/src/browser-polyfill.min.js
+src/exter/markdownload-extension-updated-main/src/highlight.min.js
+src/exter/markdownload-extension-updated-main/src/manifest.json
+src/exter/markdownload-extension-updated-main/src/package-lock.json
+src/exter/markdownload-extension-updated-main/src/package.json
+src/exter/markdownload-extension-updated-main/src/service-worker.js
+src/exter/markdownload-extension-updated-main/src/background/apache-mime-types.js
+src/exter/markdownload-extension-updated-main/src/background/moment.min.js
+src/exter/markdownload-extension-updated-main/src/background/Readability.js
+src/exter/markdownload-extension-updated-main/src/background/turndown-plugin-gfm.js
+src/exter/markdownload-extension-updated-main/src/background/turndown.js
+src/exter/markdownload-extension-updated-main/src/contentScript/contentScript.js
+src/exter/markdownload-extension-updated-main/src/contentScript/pageContext.js
+src/exter/markdownload-extension-updated-main/src/icons/appicon-128x128.png
+src/exter/markdownload-extension-updated-main/src/icons/favicon-16x16.png
+src/exter/markdownload-extension-updated-main/src/icons/favicon-32x32.png
+src/exter/markdownload-extension-updated-main/src/icons/favicon-48x48.png
+src/exter/markdownload-extension-updated-main/src/icons/favicon-192x192.png
+src/exter/markdownload-extension-updated-main/src/icons/favicon-512x512.png
+src/exter/markdownload-extension-updated-main/src/icons/icon64x64.png
+src/exter/markdownload-extension-updated-main/src/icons/icon256x256.png
+src/exter/markdownload-extension-updated-main/src/icons/icon1024x1024.png
+src/exter/markdownload-extension-updated-main/src/offscreen/offscreen.html
+src/exter/markdownload-extension-updated-main/src/offscreen/offscreen.js
+src/exter/markdownload-extension-updated-main/src/options/options.css
+src/exter/markdownload-extension-updated-main/src/options/options.html
+src/exter/markdownload-extension-updated-main/src/options/options.js
+src/exter/markdownload-extension-updated-main/src/popup/popup.css
+src/exter/markdownload-extension-updated-main/src/popup/popup.html
+src/exter/markdownload-extension-updated-main/src/popup/popup.js
+src/exter/markdownload-extension-updated-main/src/popup/lib/codemirror.css
+src/exter/markdownload-extension-updated-main/src/popup/lib/codemirror.js
+src/exter/markdownload-extension-updated-main/src/popup/lib/xq-dark.css
+src/exter/markdownload-extension-updated-main/src/popup/lib/xq-light.css
+src/exter/markdownload-extension-updated-main/src/popup/lib/modes/markdown/markdown.js
+src/exter/markdownload-extension-updated-main/src/shared/context-menus.js
+src/exter/markdownload-extension-updated-main/src/shared/default-options.js
+src/exter/markdownload-extension-updated-main/tests/README.md
+src/exter/markdownload-extension-updated-main/tests/test-page.html
+src/exter/markdownload-extension-updated-main/tests/test-runner.html
+src/exter/markdownload-extension-updated-main/xcode/MarkDownload - Markdown Web Clipper/MarkDownload - Markdown Web Clipper/AppDelegate.swift
+src/exter/markdownload-extension-updated-main/xcode/MarkDownload - Markdown Web Clipper/MarkDownload - Markdown Web Clipper/Info.plist
+src/exter/markdownload-extension-updated-main/xcode/MarkDownload - Markdown Web Clipper/MarkDownload - Markdown Web Clipper/MarkDownload___Markdown_Web_Clipper.entitlements
+src/exter/markdownload-extension-updated-main/xcode/MarkDownload - Markdown Web Clipper/MarkDownload - Markdown Web Clipper/ViewController.swift
+src/exter/markdownload-extension-updated-main/xcode/MarkDownload - Markdown Web Clipper/MarkDownload - Markdown Web Clipper/Assets.xcassets/Contents.json
+src/exter/markdownload-extension-updated-main/xcode/MarkDownload - Markdown Web Clipper/MarkDownload - Markdown Web Clipper/Assets.xcassets/AccentColor.colorset/Contents.json
+src/exter/markdownload-extension-updated-main/xcode/MarkDownload - Markdown Web Clipper/MarkDownload - Markdown Web Clipper/Assets.xcassets/AppIcon.appiconset/appicon-128x128.png
+src/exter/markdownload-extension-updated-main/xcode/MarkDownload - Markdown Web Clipper/MarkDownload - Markdown Web Clipper/Assets.xcassets/AppIcon.appiconset/Contents.json
+src/exter/markdownload-extension-updated-main/xcode/MarkDownload - Markdown Web Clipper/MarkDownload - Markdown Web Clipper/Assets.xcassets/AppIcon.appiconset/favicon-16x16.png
+src/exter/markdownload-extension-updated-main/xcode/MarkDownload - Markdown Web Clipper/MarkDownload - Markdown Web Clipper/Assets.xcassets/AppIcon.appiconset/favicon-32x32.png
+src/exter/markdownload-extension-updated-main/xcode/MarkDownload - Markdown Web Clipper/MarkDownload - Markdown Web Clipper/Assets.xcassets/AppIcon.appiconset/favicon-512x512.png
+src/exter/markdownload-extension-updated-main/xcode/MarkDownload - Markdown Web Clipper/MarkDownload - Markdown Web Clipper/Assets.xcassets/AppIcon.appiconset/icon64x64.png
+src/exter/markdownload-extension-updated-main/xcode/MarkDownload - Markdown Web Clipper/MarkDownload - Markdown Web Clipper/Assets.xcassets/AppIcon.appiconset/icon256x256-1.png
+src/exter/markdownload-extension-updated-main/xcode/MarkDownload - Markdown Web Clipper/MarkDownload - Markdown Web Clipper/Assets.xcassets/AppIcon.appiconset/icon256x256.png
+src/exter/markdownload-extension-updated-main/xcode/MarkDownload - Markdown Web Clipper/MarkDownload - Markdown Web Clipper/Assets.xcassets/AppIcon.appiconset/icon1024x1024.png
+src/exter/markdownload-extension-updated-main/xcode/MarkDownload - Markdown Web Clipper/MarkDownload - Markdown Web Clipper/Base.lproj/Main.storyboard
+src/exter/markdownload-extension-updated-main/xcode/MarkDownload - Markdown Web Clipper/MarkDownload - Markdown Web Clipper Extension/Info.plist
+src/exter/markdownload-extension-updated-main/xcode/MarkDownload - Markdown Web Clipper/MarkDownload - Markdown Web Clipper Extension/MarkDownload___Markdown_Web_Clipper_Extension.entitlements
+src/exter/markdownload-extension-updated-main/xcode/MarkDownload - Markdown Web Clipper/MarkDownload - Markdown Web Clipper Extension/SafariWebExtensionHandler.swift
+src/exter/markdownload-extension-updated-main/xcode/MarkDownload - Markdown Web Clipper/MarkDownload - Markdown Web Clipper.xcodeproj/project.pbxproj

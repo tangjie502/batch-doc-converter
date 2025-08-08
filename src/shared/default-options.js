@@ -2,12 +2,12 @@
 const defaultOptions = {
   // Turndown 配置
   headingStyle: "atx",
-  hr: "---",
+  hr: "___",
   bulletListMarker: "-",
   codeBlockStyle: "fenced",
   fence: "```",
-  preserveCodeFormatting: true,
-  emDelimiter: "*",
+  preserveCodeFormatting: false,
+  emDelimiter: "_",
   strongDelimiter: "**",
   linkStyle: "inlined",
   linkReferenceStyle: "full",
@@ -20,11 +20,11 @@ const defaultOptions = {
   
   // 表格格式化配置
   tableFormatting: {
-    stripLinks: false,        // 保留表格中的链接
-    stripFormatting: false,   // 保留表格格式
-    prettyPrint: true,        // 美化表格
-    centerText: false,        // 不居中文本
-    alignColumns: true        // 对齐列
+    stripLinks: true,
+    stripFormatting: false,
+    prettyPrint: true,
+    centerText: true,
+    alignColumns: true
   },
   
   // 模板配置

@@ -772,16 +772,21 @@ async function setupOffscreenDocument(path) {
   try {
     const existingContexts = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
     if (existingContexts.length > 0) {
-      console.log('[Background] Offscreen文档已存在');
-      return;
+      console.log('[Background] 发现已存在的 Offscreen 文档，关闭以便加载最新代码');
+      try {
+        await chrome.offscreen.closeDocument();
+        console.log('[Background] 成功关闭旧的 Offscreen 文档');
+      } catch (e) {
+        console.warn('[Background] 关闭 Offscreen 文档失败（可能已被关闭）:', e);
+      }
     }
-    
-    console.log('[Background] 创建Offscreen文档:', path);
+    console.log('[Background] 创建 Offscreen 文档:', path);
     await chrome.offscreen.createDocument({
       url: path,
       reasons: ['DOM_PARSER', 'DOM_SCRAPING'],
       justification: 'To parse and convert HTML to Markdown.',
     });
+    console.log('[Background] Offscreen 文档创建成功');
   } catch (error) {
     console.error('[Background] 创建Offscreen文档失败:', error);
     throw error;

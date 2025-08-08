@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试 Markdown 样式转换</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        pre { background-color: #f4f4f4; padding: 10px; border-radius: 5px; }
+        code { background-color: #f4f4f4; padding: 2px 4px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>测试 Markdown 样式转换</h1>
+    
+    <h2>表格测试</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>功能</th>
+                <th>状态</th>
+                <th>描述</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>表格美化</strong></td>
+                <td><a href="https://example.com">启用</a></td>
+                <td>表格对齐和格式化</td>
+            </tr>
+            <tr>
+                <td><em>代码块</em></td>
+                <td>启用</td>
+                <td>语言识别和语法高亮</td>
+            </tr>
+            <tr>
+                <td>链接处理</td>
+                <td>启用</td>
+                <td>表格内链接剥离</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>代码块测试</h2>
+    <pre><code class="language-javascript">function testMarkdown() {
+    const table = document.querySelector('table');
+    const rows = table.querySelectorAll('tr');
+    
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td, th');
+        cells.forEach(cell => {
+            console.log(cell.textContent);
+        });
+    });
+}</code></pre>
+
+    <h2>链接测试</h2>
+    <p>这是一个 <a href="https://github.com">GitHub</a> 链接，以及一个 <a href="https://stackoverflow.com" title="编程问答社区">Stack Overflow</a> 链接。</p>
+
+    <h2>格式化测试</h2>
+    <p>这是<strong>粗体文本</strong>和<em>斜体文本</em>，还有<code>行内代码</code>。</p>
+
+    <h2>列表测试</h2>
+    <ul>
+        <li>第一项</li>
+        <li>第二项</li>
+        <li>第三项</li>
+    </ul>
+
+    <ol>
+        <li>有序列表第一项</li>
+        <li>有序列表第二项</li>
+    </ol>
+</body>
+</html> 
