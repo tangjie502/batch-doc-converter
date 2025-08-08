@@ -133,6 +133,10 @@
 
     // 切换选择模式
     switchMode(mode) {
+      if (mode === 'text') {
+        console.log('[Content] 文本模式已禁用，保持当前模式:', this.currentMode);
+        return;
+      }
       if (!this.isSelectionActive) return;
       
       console.log('[Content] 切换到模式:', mode);

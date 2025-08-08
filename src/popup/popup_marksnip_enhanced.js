@@ -89,6 +89,7 @@ class MarkSnipEnhancedPopup {
     document.querySelectorAll('.mode-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const mode = e.target.dataset.mode;
+        if (mode === 'text') return; // 文本模式已取消
         this.switchSelectionMode(mode);
       });
     });
