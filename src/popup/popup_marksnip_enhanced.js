@@ -120,10 +120,11 @@ class MarkSnipEnhancedPopup {
       this.resetConfig();
     });
 
-    // 选择模式切换
-    document.getElementById('selection-mode').addEventListener('change', (e) => {
-      this.switchSelectionMode(e.target.value);
-    });
+    // 移除下拉选择模式监听（已取消选择模式下拉框）
+    const selectionModeEl = document.getElementById('selection-mode');
+    if (selectionModeEl) {
+      selectionModeEl.remove();
+    }
 
     console.log('[Popup] 事件监听器设置完成');
   }
@@ -248,21 +249,13 @@ class MarkSnipEnhancedPopup {
   // 处理选中内容
   async processSelectedContent() {
     try {
-      if (this.state.selectedLinks?.length === 0) {
-        this.showNotification('请先选择要处理的内容', 'warning');
-        return;
-      }
-
+      // 直接转发给当前页内容脚本收集并处理
       this.updateStatus('正在处理选中内容...');
-      
-      const response = await chrome.runtime.sendMessage({
-        type: 'PROCESS_SELECTED_CONTENT',
-        config: this.options
-      });
-
-      if (response?.success) {
-        this.showNotification('处理完成', 'success');
-        await this.exitSelectionMode();
+      const ok = await chrome.tabs.query({ active: true, currentWindow: true })
+        .then(([tab]) => tab ? chrome.tabs.sendMessage(tab.id, { type: 'PROCESS_SELECTED_CONTENT', config: this.options }) : null)
+        .catch(err => { console.error('[Popup] 转发到内容脚本失败:', err); return null; });
+      if (!ok && this.state.selectedLinks?.length === 0) {
+        this.showNotification('未检测到选中内容，请先选择', 'warning');
       }
     } catch (error) {
       console.error('[Popup] 处理选中内容失败:', error);
@@ -551,10 +544,10 @@ class MarkSnipEnhancedPopup {
     // 更新选择按钮
     const toggleBtn = document.getElementById('toggle-selection-btn');
     if (this.state.isSelectionActive) {
-      toggleBtn.textContent = '退出选择模式';
+      toggleBtn.textContent = '退出选择';
       toggleBtn.classList.add('active');
     } else {
-      toggleBtn.textContent = '开始选择链接';
+      toggleBtn.textContent = '开始选择';
       toggleBtn.classList.remove('active');
     }
     

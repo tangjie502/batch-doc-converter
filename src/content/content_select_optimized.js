@@ -92,6 +92,11 @@
               this.clearSelection();
               sendResponse({ success: true });
               break;
+            case 'PROCESS_SELECTED_CONTENT':
+              // 来自弹窗的请求：收集选中内容并转发给后台处理
+              this.processSelectedContentFromPopup(message.config || {});
+              sendResponse({ success: true });
+              break;
             default:
               console.log('[Content] 未处理的消息类型:', message.type);
               sendResponse({ success: false, error: 'Unknown message type' });
@@ -404,6 +409,66 @@
       this.selectedLinks = [];
       this.updateStatusIndicator();
       this.notifyPopup();
+    }
+
+    // 从弹窗触发：收集选中内容并通知后台处理
+    processSelectedContentFromPopup(config = {}) {
+      try {
+        const contentData = [];
+        let index = 0;
+
+        if (this.currentMode === 'links') {
+          // 仅处理已选中的链接元素
+          this.selectedElements.forEach(el => {
+            if (el && el.tagName === 'A' && el.href) {
+              contentData.push({
+                type: 'links',
+                content: (el.textContent || '').trim(),
+                url: el.href,
+                element: 'a',
+                index: index++
+              });
+            }
+          });
+        } else if (this.currentMode === 'text') {
+          // 选中文本：selectedElements 中存有对象
+          this.selectedElements.forEach(item => {
+            if (item && typeof item === 'object' && item.type === 'text') {
+              contentData.push({
+                type: 'text',
+                content: (item.text || '').trim(),
+                element: 'text',
+                index: index++
+              });
+            }
+          });
+        } else if (this.currentMode === 'elements' || this.currentMode === 'area') {
+          this.selectedElements.forEach(el => {
+            if (el && el.outerHTML) {
+              contentData.push({
+                type: this.currentMode,
+                content: el.outerHTML,
+                element: (el.tagName || '').toLowerCase(),
+                index: index++
+              });
+            }
+          });
+        }
+
+        console.log('[Content] 准备发送选中内容到后台:', contentData);
+
+        if (!contentData.length) {
+          console.warn('[Content] 未收集到选中内容');
+        }
+
+        chrome.runtime.sendMessage({
+          type: 'PROCESS_SELECTED_CONTENT',
+          contentData,
+          config
+        }).catch(err => console.error('[Content] 发送处理选中内容失败:', err));
+      } catch (err) {
+        console.error('[Content] 处理选中内容（来自弹窗）失败:', err);
+      }
     }
 
     // 移除所有事件监听器
