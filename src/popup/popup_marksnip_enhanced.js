@@ -281,9 +281,13 @@ class MarkSnipEnhancedPopup {
 
   // 更新选择计数
   updateSelectionCount() {
-    const count = this.state.selectedLinks?.length || 0;
-    document.getElementById('selection-count').textContent = count;
-    document.getElementById('link-count').textContent = count;
+    const count = typeof this.state.selectedCount === 'number'
+      ? this.state.selectedCount
+      : (this.state.selectedLinks?.length || 0);
+    const countEl = document.getElementById('selection-count');
+    if (countEl) countEl.textContent = count;
+    const linkCountEl = document.getElementById('link-count');
+    if (linkCountEl) linkCountEl.textContent = this.state.selectedLinks?.length || 0;
   }
 
   // 处理队列
@@ -562,6 +566,12 @@ class MarkSnipEnhancedPopup {
     } else {
       this.hideSelectionStatus();
     }
+    // 同步“已选择: X 项”文本
+    const selectedCount = typeof this.state.selectedCount === 'number'
+      ? this.state.selectedCount
+      : (this.state.selectedLinks?.length || 0);
+    const countEl = document.getElementById('selection-count');
+    if (countEl) countEl.textContent = selectedCount;
     
     // 更新配置开关状态
     this.updateToggleStates();
@@ -658,7 +668,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'STATE_UPDATE':
     case 'STATE_UPDATED':
       if (window.popup && message.state) {
-        window.popup.state = message.state;
+        // 合并状态，保留 selectedCount 等由内容脚本上报但 background 不维护的字段
+        window.popup.state = { ...window.popup.state, ...message.state };
         window.popup.updateUI();
       }
       break;
@@ -666,6 +677,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (window.popup) {
         window.popup.state.isSelectionActive = message.isActive;
         window.popup.state.selectedLinks = message.selectedLinks || [];
+        window.popup.state.selectedCount = typeof message.count === 'number' ? message.count : window.popup.state.selectedCount;
         if (message.count !== undefined) {
           window.popup.state.status = message.isActive 
             ? `选择模式 (${message.mode || '链接'}) - 已选择 ${message.count} 项`
