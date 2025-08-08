@@ -251,12 +251,24 @@
       document.addEventListener('mouseup', this.boundHandleAreaEnd);
     }
 
-    // 链接点击处理
+    // 链接点击处理（仅在按下 Command/Ctrl 时选择链接）
     handleLinkClick(e) {
+      const link = e.target.closest('a');
+      if (!link) return;
+
+      // 仅在选择模式且为链接模式时响应
+      if (!this.isSelectionActive || this.currentMode !== 'links') return;
+
+      const isModifierPressed = e.metaKey || e.ctrlKey; // Mac: Command -> metaKey; Windows/Linux: Ctrl -> ctrlKey
+      if (!isModifierPressed) {
+        // 未按修饰键：允许正常打开链接
+        return;
+      }
+
+      // 按下修饰键：阻止默认并切换选择
       e.preventDefault();
       e.stopPropagation();
-      
-      const link = e.target.closest('a');
+
       if (link && link.href) {
         if (this.selectedElements.has(link)) {
           this.deselectElement(link);

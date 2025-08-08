@@ -75,7 +75,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }); 
         break;
       case 'SWITCH_SELECTION_MODE': 
-        handleSwitchSelectionMode(message.mode).catch(error => {
+        handleSwitchSelectionModeByMode(message.mode).catch(error => {
           console.error('[Background] 切换模式失败:', error);
           state.status = '切换模式失败: ' + error.message;
           updatePopupState();
@@ -153,23 +153,50 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
-// 新增：处理模式切换
-async function handleSwitchSelectionMode(mode) {
+// 新增：处理模式切换（按模式字符串）
+async function handleSwitchSelectionModeByMode(mode) {
   console.log('[Background] 切换选择模式:', mode);
-  if (state.activeTabId) {
+  if (!state.activeTabId) return;
+  try {
+    await chrome.tabs.sendMessage(state.activeTabId, {
+      type: 'SWITCH_SELECTION_MODE',
+      mode
+    });
+  } catch (error) {
+    console.error('[Background] 发送切换模式消息失败(按模式):', error);
+    throw error;
+  }
+}
+
+// 新增：确保内容脚本已注入并可接收消息
+async function ensureContentScriptInjected(tabId) {
+  try {
+    // 注入优化版内容脚本（带自防重复标记）
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['src/content/content_select_optimized.js']
+    });
+  } catch (err) {
+    console.warn('[Background] 注入内容脚本失败(可能已存在):', err);
+  }
+}
+
+// 新增：安全发送消息到标签页，失败时尝试注入后重试一次
+async function sendMessageToTabSafely(tabId, message) {
+  try {
+    await chrome.tabs.sendMessage(tabId, message);
+    return true;
+  } catch (err) {
+    console.warn('[Background] 发送消息失败，尝试注入后重试:', err);
     try {
-      await chrome.scripting.executeScript({
-        target: { tabId: state.activeTabId },
-        func: (mode) => {
-          if (window.enhancedSelector) {
-            window.enhancedSelector.switchMode(mode);
-          }
-        },
-        args: [mode]
-      });
-    } catch (error) {
-      console.error('[Background] 切换模式失败:', error);
-      throw error;
+      await ensureContentScriptInjected(tabId);
+      // 稍等内容脚本初始化
+      await new Promise(r => setTimeout(r, 120));
+      await chrome.tabs.sendMessage(tabId, message);
+      return true;
+    } catch (err2) {
+      console.error('[Background] 重试发送消息仍失败:', err2);
+      return false;
     }
   }
 }
@@ -210,31 +237,22 @@ async function toggleSelectionMode(config = null) {
           console.warn('[Background] 注入CSS失败:', error);
         }
         
-        // 再注入脚本
-        try {
-          await chrome.scripting.executeScript({ 
-            target: { tabId: tab.id }, 
-            files: ['src/content/content_select_enhanced.js'] 
+        // 确保内容脚本可用（优化版）
+        await ensureContentScriptInjected(tab.id);
+        console.log('[Background] 尝试启动选择模式...');
+
+        // 等待脚本初始化完成后再发送启动消息
+        setTimeout(async () => {
+          const ok = await sendMessageToTabSafely(tab.id, {
+            type: 'START_SELECTION_MODE',
+            config: config || {}
           });
-          console.log('[Background] 脚本注入成功');
-          
-          // 等待脚本初始化完成后再发送启动消息
-          setTimeout(async () => {
-            try {
-              await chrome.tabs.sendMessage(tab.id, {
-                type: 'START_SELECTION_MODE',
-                config: config || {}
-              });
-              console.log('[Background] 发送启动选择模式消息成功');
-            } catch (error) {
-              console.error('[Background] 发送启动选择模式消息失败:', error);
-            }
-          }, 100);
-          
-        } catch (error) {
-          console.error('[Background] 注入脚本失败:', error);
-          throw error;
-        }
+          if (ok) {
+            console.log('[Background] 发送启动选择模式消息成功');
+          } else {
+            console.error('[Background] 启动选择模式失败：内容脚本不可用');
+          }
+        }, 100);
       }
     } catch (error) {
       console.error('[Background] 获取活动标签页失败:', error);
@@ -651,12 +669,16 @@ async function handleStartSelectionMode(message, sender) {
     state.activeTabId = activeTab.id;
     state.status = '选择模式已激活';
     
-    // 发送启动消息给内容脚本
-    console.log('[Background] 发送启动消息给标签页:', activeTab.id);
-    await chrome.tabs.sendMessage(activeTab.id, {
+    // 确保内容脚本已注入并发送启动消息
+    console.log('[Background] 确保内容脚本已注入并启动:', activeTab.id);
+    await ensureContentScriptInjected(activeTab.id);
+    const ok = await sendMessageToTabSafely(activeTab.id, {
       type: 'START_SELECTION_MODE',
       config: message.config
     });
+    if (!ok) {
+      throw new Error('内容脚本未响应');
+    }
     
     console.log('[Background] 启动选择模式成功');
     updatePopupState();

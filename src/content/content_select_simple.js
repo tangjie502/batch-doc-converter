@@ -147,10 +147,14 @@
     handleLinkClick(event) {
       const link = event.target.closest('a');
       if (!link) return;
-      
+
+      // 仅当按下 Command/Ctrl 时执行选择；否则允许正常打开链接
+      const isModifierPressed = event.metaKey || event.ctrlKey;
+      if (!isModifierPressed) return;
+
       event.preventDefault();
       event.stopPropagation();
-      
+
       this.toggleElementSelection(link);
     }
 

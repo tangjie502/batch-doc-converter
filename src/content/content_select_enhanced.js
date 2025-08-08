@@ -390,6 +390,7 @@
       if (this.isSelectionActive) {
         this.updateStatusIndicator();
       }
+      this.notifySelectionUpdated();
     }
 
     async processSelectedContent() {
@@ -529,6 +530,7 @@
       // 更新状态指示器内容
       console.log('[Content] 🔄 更新状态指示器内容');
       this.updateStatusIndicator();
+      this.notifySelectionUpdated();
       
       console.log('[Content] ✅ 选择模式启动完成！');
       console.log('[Content] 当前状态 - 模式:', this.currentMode, '选择状态:', this.isSelectionActive);
@@ -599,6 +601,24 @@
             break;
         }
       });
+    }
+
+    // 通知后台/弹窗选择状态更新
+    notifySelectionUpdated() {
+      try {
+        const selectedLinks = Array.from(this.selectedElements)
+          .filter(el => el && el.href)
+          .map(el => el.href);
+        chrome.runtime.sendMessage({
+          type: 'SELECTION_UPDATED',
+          isActive: this.isSelectionActive,
+          count: this.selectedElements.size,
+          selectedLinks: this.currentMode === 'links' ? selectedLinks : [],
+          mode: this.currentMode
+        });
+      } catch (err) {
+        console.warn('[Content] 发送选择更新失败:', err);
+      }
     }
 
     addStyles() {
