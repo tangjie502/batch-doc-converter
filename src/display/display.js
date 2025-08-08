@@ -2,7 +2,6 @@
 
 class EnhancedDisplay {
   constructor() {
-    this.easyMDE = null;
     this.currentView = 'preview';
     this.originalMarkdown = '';
     this.originalHtml = '';
@@ -186,9 +185,6 @@ class EnhancedDisplay {
         processedContent = this.preserveFormatting(processedContent);
       }
 
-      // 初始化编辑器
-      this.initEditor(processedContent);
-      
       // 显示预览
       this.displayPreview(processedContent);
       
@@ -229,31 +225,8 @@ class EnhancedDisplay {
     return formatted;
   }
 
-  initEditor(content) {
-    const editorTextarea = document.getElementById('markdown-editor');
-    
-    if (this.easyMDE) {
-      this.easyMDE.value(content);
-    } else {
-      this.easyMDE = new EasyMDE({
-        element: editorTextarea,
-        value: content,
-        spellChecker: false,
-        autosave: {
-          enabled: true,
-          uniqueId: 'display-editor',
-          delay: 1000,
-        },
-        toolbar: [
-          'bold', 'italic', 'heading', '|',
-          'quote', 'unordered-list', 'ordered-list', '|',
-          'link', 'image', '|',
-          'preview', 'side-by-side', 'fullscreen', '|',
-          'guide'
-        ]
-      });
-    }
-  }
+  // 编辑器已移除，保留函数以避免调用错误（若有旧代码引用）
+  initEditor() { /* no-op */ }
 
   displayPreview(content) {
     const previewDiv = document.getElementById('preview');
@@ -317,7 +290,7 @@ class EnhancedDisplay {
     const toggleBtn = document.getElementById('toggle-view-btn');
     toggleBtn.textContent = this.currentView === 'preview' ? '查看源码' : '查看预览';
     
-    const content = this.easyMDE ? this.easyMDE.value() : this.originalMarkdown;
+    const content = this.originalMarkdown;
     this.displayPreview(content);
   }
 
@@ -460,7 +433,7 @@ class EnhancedDisplay {
 
   downloadMarkdown() {
     try {
-      const contentToDownload = this.easyMDE ? this.easyMDE.value() : this.originalMarkdown;
+      const contentToDownload = this.originalMarkdown;
       const blob = new Blob([contentToDownload], { type: 'text/markdown;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -480,7 +453,7 @@ class EnhancedDisplay {
 
   downloadText() {
     try {
-      const markdownContent = this.easyMDE ? this.easyMDE.value() : this.originalMarkdown;
+      const markdownContent = this.originalMarkdown;
       const textContent = this.markdownToText(markdownContent);
       
       const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
